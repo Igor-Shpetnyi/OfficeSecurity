@@ -1,0 +1,62 @@
+<div class="grid grid-stats">
+  <div class="card">
+    <div class="stat-label">Активні канали</div>
+    <div class="stat-value">{{ active_channels }}</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Подій за 24 год</div>
+    <div class="stat-value">{{ events_24h }}</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Останнє повідомлення</div>
+    <div class="stat-value" style="font-size:16px;">{{ last_message_at.strftime("%Y-%m-%d %H:%M:%S") if last_message_at else "—" }}</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:16px;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Останні події</h2>
+      <a href="/events/recent" class="btn btn-secondary btn-small">Усі →</a>
+    </div>
+    {% if events %}
+    <table class="data-table">
+      <tr><th>Час</th><th>Канал</th><th>Тип</th><th>Текст</th></tr>
+      {% for e in events %}
+      <tr>
+        <td>{{ e.detected_at.strftime("%H:%M:%S") }}</td>
+        <td>{{ e.source_channel }}</td>
+        <td><span class="badge {{ 'badge-warning' if e.event_type == 'edit' else 'badge-neutral' }}">{{ e.event_type }}</span></td>
+        <td>{{ (e.raw_text or "—") | truncate(80) }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty-state">Ще немає подій</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Канали</h2>
+      <a href="/channels" class="btn btn-secondary btn-small">Усі →</a>
+    </div>
+    {% if channels %}
+    <table class="data-table">
+      <tr><th>Канал</th><th>Статус</th></tr>
+      {% for c in channels %}
+      <tr>
+        <td>{{ c.channel_identifier }}</td>
+        <td>
+          <span class="badge {{ 'badge-positive' if c.join_status == 'joined' else ('badge-negative' if c.join_status == 'failed' else 'badge-warning') }}">
+            {{ c.join_status }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty-state">Немає каналів — <a href="/channels">додати</a></div>
+    {% endif %}
+  </div>
+</div>

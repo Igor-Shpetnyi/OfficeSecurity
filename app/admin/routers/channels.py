@@ -1,0 +1,43 @@
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from app.common.redis_client import CHANNELS_UPDATE_TOPIC
+
+router = APIRouter(prefix="/channels", tags=["channels"])
+templates = Jinja2Templates(directory="app/admin/templates")
+
+
+@router.get("")
+async def list_channels(request: Request):
+    pool = request.app.state.pool
+    rows = await pool.fetch(
+        "SELECT id, channel_identifier, identifier_type, title, is_active, join_status, "
+        "join_error, last_message_at FROM monitoring_channels ORDER BY added_at DESC"
+    )
+    return templates.TemplateResponse(request, "channels.html", {"channels": rows, "active_page": "channels"})
+
+
+@router.post("")
+async def add_channel(
+    request: Request,
+    channel_identifier: str = Form(...),
+    identifier_type: str = Form("username"),
+):
+    pool = request.app.state.pool
+    await pool.execute(
+        "INSERT INTO monitoring_channels (channel_identifier, identifier_type, added_at) "
+        "VALUES ($1, $2, now()) ON CONFLICT (channel_identifier) DO NOTHING",
+        channel_identifier.strip(),
+        identifier_type,
+    )
+    await request.app.state.redis.publish(CHANNELS_UPDATE_TOPIC, "added")
+    return RedirectResponse(url="/channels", status_code=303)
+
+
+@router.post("/{channel_id}/deactivate")
+async def deactivate_channel(request: Request, channel_id: int):
+    pool = request.app.state.pool
+    await pool.execute("UPDATE monitoring_channels SET is_active = FALSE WHERE id = $1", channel_id)
+    await request.app.state.redis.publish(CHANNELS_UPDATE_TOPIC, "removed")
+    return RedirectResponse(url="/channels", status_code=303)

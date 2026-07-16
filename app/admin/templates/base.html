@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Безпека Офісу — Суми{% endblock %}</title>
+<link rel="stylesheet" href="/static/css/theme.css">
+<script>
+  document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');
+</script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="avatar">БО</div>
+      <div>
+        <div class="sidebar-title">Безпека Офісу</div>
+        <div class="sidebar-subtitle">Суми</div>
+      </div>
+    </div>
+    <div class="nav-section-label">Меню</div>
+    <nav>
+      <a href="/dashboard" class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Дашборд
+      </a>
+      <a href="/channels" class="nav-item {{ 'active' if active_page == 'channels' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>
+        Канали
+      </a>
+      <a href="/events/recent" class="nav-item {{ 'active' if active_page == 'events' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Події
+      </a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div class="breadcrumb">Панель / <span class="current">{% block breadcrumb %}{% endblock %}</span></div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Перемкнути тему">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

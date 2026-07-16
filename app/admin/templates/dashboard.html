@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — Безпека Офісу{% endblock %}
+{% block breadcrumb %}Дашборд{% endblock %}
+{% block content %}
+<h1 class="page-title">Огляд</h1>
+<p class="page-subtitle">Моніторинг каналів і потік сирих подій в одному місці</p>
+
+<div id="dashboard-content">
+  {% include "_dashboard_content.html" %}
+</div>
+
+<script src="/static/js/live-refresh.js"></script>
+<script>startLiveRefresh('dashboard-content', '/dashboard/fragment', 5000);</script>
+{% endblock %}
