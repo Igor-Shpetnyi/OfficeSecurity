@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS monitoring_channels (
     identifier_type VARCHAR(10) NOT NULL DEFAULT 'username', -- 'username' | 'invite'
     telegram_id BIGINT,
     title VARCHAR(255),
+    avatar_color VARCHAR(7), -- '#rrggbb', середній колір завантаженої аватарки (app/common/avatars.py)
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     join_status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | joined | failed | left
     join_error TEXT,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS events_log (
     raw_text TEXT,
     source_channel VARCHAR(100),
     telegram_message_id BIGINT, -- стабільний ID повідомлення в Telegram; той самий для 'new' і наступних 'edit' цього ж поста
+    reply_to_message_id BIGINT, -- telegram_message_id повідомлення, на яке відповідають (той самий канал), NULL якщо не reply
     event_type VARCHAR(10) NOT NULL DEFAULT 'new', -- 'new' | 'edit'
     detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     regex_matched_level VARCHAR(10),

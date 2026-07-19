@@ -1,9 +1,14 @@
 import os
+import time
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Cache-buster для статики (CSS/JS) — міняється при кожному рестарті процесу,
+# інакше браузер тримає застарілий theme.css навіть після редагування файлу.
+STATIC_VERSION = str(int(time.time()))
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
 
 import asyncpg
@@ -8,6 +9,8 @@ from telethon.errors import FloodWaitError, InviteHashExpiredError, UserAlreadyP
 from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.utils import get_peer_id
+
+from app.common.avatars import AVATAR_DIR, extract_avg_color
 
 logger = logging.getLogger(__name__)
 
@@ -38,26 +41,49 @@ async def mark_join_status(
     channel_id: int,
     status: str,
     telegram_id: int | None = None,
+    title: str | None = None,
+    avatar_color: str | None = None,
     error: str | None = None,
 ) -> None:
     await pool.execute(
         "UPDATE monitoring_channels "
-        "SET join_status = $1, telegram_id = COALESCE($2, telegram_id), join_error = $3 "
-        "WHERE id = $4",
+        "SET join_status = $1, telegram_id = COALESCE($2, telegram_id), "
+        "title = COALESCE($3, title), avatar_color = COALESCE($4, avatar_color), join_error = $5 "
+        "WHERE id = $6",
         status,
         telegram_id,
+        title,
+        avatar_color,
         error,
         channel_id,
     )
 
 
-async def join_channel(client: TelegramClient, channel: MonitoredChannel) -> int:
+async def fetch_avatar(client: TelegramClient, entity, telegram_id: int) -> str | None:
+    """Завантажує поточне фото профілю каналу в app/admin/static/avatars/<id>.jpg
+    і повертає його середній колір (для акценту в UI — замість випадкового
+    хешу). Канали без фото (download повертає None) — адмін-панель тоді
+    показує кольоровий ініціал (процедурний фолбек-колір), помилка не потрібна."""
+    try:
+        os.makedirs(AVATAR_DIR, exist_ok=True)
+        path = os.path.join(AVATAR_DIR, f"{telegram_id}.jpg")
+        result = await client.download_profile_photo(entity, file=path)
+        if result is None:
+            return None
+        return extract_avg_color(path)
+    except Exception as e:
+        logger.warning("Failed to download avatar for %s: %s", telegram_id, e)
+        return None
+
+
+async def join_channel(client: TelegramClient, channel: MonitoredChannel) -> tuple[int, str, str | None]:
     """Приєднує юзербот-акаунт до каналу — без цього Telethon не отримує NewMessage-події.
 
     Повертає "marked" ID (get_peer_id), а НЕ сирий entity.id — саме marked ID
     Telethon підставляє в event.chat_id для NewMessage/MessageEdited (для каналів
     це entity.id з префіксом -100). Порівняння сирого ID з marked ID ніколи не
-    співпаде, і повідомлення мовчки відфільтровуються.
+    співпаде, і повідомлення мовчки відфільтровуються. Заразом тягне title і
+    аватарку — для адмін-панелі краще показувати їх, а не сирий @username.
     """
     if channel.identifier_type == "invite":
         result = await client(ImportChatInviteRequest(channel.channel_identifier))
@@ -65,7 +91,9 @@ async def join_channel(client: TelegramClient, channel: MonitoredChannel) -> int
     else:
         entity = await client.get_entity(channel.channel_identifier)
         await client(JoinChannelRequest(entity))
-    return get_peer_id(entity)
+    telegram_id = get_peer_id(entity)
+    avatar_color = await fetch_avatar(client, entity, telegram_id)
+    return telegram_id, entity.title, avatar_color
 
 
 async def sync_pending_joins(client: TelegramClient, pool: asyncpg.Pool) -> None:
@@ -83,12 +111,18 @@ async def sync_pending_joins(client: TelegramClient, pool: asyncpg.Pool) -> None
             is_active=True,
         )
         try:
-            telegram_id = await join_channel(client, channel)
-            await mark_join_status(pool, channel.id, "joined", telegram_id=telegram_id)
+            telegram_id, title, avatar_color = await join_channel(client, channel)
+            await mark_join_status(
+                pool, channel.id, "joined", telegram_id=telegram_id, title=title, avatar_color=avatar_color
+            )
             logger.info("Joined channel %s -> telegram_id=%s", channel.channel_identifier, telegram_id)
         except UserAlreadyParticipantError:
             entity = await client.get_entity(channel.channel_identifier)
-            await mark_join_status(pool, channel.id, "joined", telegram_id=get_peer_id(entity))
+            telegram_id = get_peer_id(entity)
+            avatar_color = await fetch_avatar(client, entity, telegram_id)
+            await mark_join_status(
+                pool, channel.id, "joined", telegram_id=telegram_id, title=entity.title, avatar_color=avatar_color
+            )
         except FloodWaitError as e:
             logger.warning(
                 "FloodWait %ss while joining %s, will retry on next sync",
@@ -137,5 +171,26 @@ async def sync_pending_leaves(client: TelegramClient, pool: asyncpg.Pool) -> Non
             # ретраїмо вічно той самий провал щохвилини.
             logger.error("Failed to leave %s (treating as left): %s", row["channel_identifier"], e)
             await mark_join_status(pool, row["id"], "left", error=str(e))
+
+        await asyncio.sleep(JOIN_DELAY_SECONDS)
+
+
+async def sync_missing_metadata(client: TelegramClient, pool: asyncpg.Pool) -> None:
+    """Доповнює title/аватарку/колір для каналів, приєднаних до того, як їх
+    почали зберігати — без цього вони назавжди лишились би з NULL, бо
+    звичайний join більше не повторюється для вже 'joined' каналів."""
+    rows = await pool.fetch(
+        "SELECT id, channel_identifier, telegram_id FROM monitoring_channels "
+        "WHERE is_active = TRUE AND join_status = 'joined' AND telegram_id IS NOT NULL "
+        "AND (title IS NULL OR avatar_color IS NULL)"
+    )
+    for row in rows:
+        try:
+            entity = await client.get_entity(row["telegram_id"])
+            avatar_color = await fetch_avatar(client, entity, row["telegram_id"])
+            await mark_join_status(pool, row["id"], "joined", title=entity.title, avatar_color=avatar_color)
+            logger.info("Backfilled metadata for %s", row["channel_identifier"])
+        except Exception as e:
+            logger.warning("Failed to backfill metadata for %s: %s", row["channel_identifier"], e)
 
         await asyncio.sleep(JOIN_DELAY_SECONDS)

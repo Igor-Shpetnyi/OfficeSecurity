@@ -7,7 +7,12 @@ from telethon.sessions import StringSession
 from app.common.redis_client import CHANNELS_UPDATE_TOPIC, get_redis
 from app.config import load_settings
 from app.db.pool import create_pool
-from app.userbot.channels import fetch_active_channels, sync_pending_joins, sync_pending_leaves
+from app.userbot.channels import (
+    fetch_active_channels,
+    sync_missing_metadata,
+    sync_pending_joins,
+    sync_pending_leaves,
+)
 from app.userbot.handlers import register_message_handler
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +45,7 @@ async def periodic_join_sync(client, pool, active_ids: set[int], interval: int =
         await asyncio.sleep(interval)
         await sync_pending_joins(client, pool)
         await sync_pending_leaves(client, pool)
+        await sync_missing_metadata(client, pool)
         await refresh_active_ids(pool, active_ids)
 
 
@@ -59,6 +65,7 @@ async def main() -> None:
     active_ids: set[int] = set()
     await sync_pending_joins(client, pool)
     await sync_pending_leaves(client, pool)
+    await sync_missing_metadata(client, pool)
     await refresh_active_ids(pool, active_ids)
 
     register_message_handler(client, pool, active_ids)
