@@ -2,20 +2,27 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.common.channels_query import load_channels
 from app.common.redis_client import CHANNELS_UPDATE_TOPIC
+from app.config import STATIC_VERSION
 
 router = APIRouter(prefix="/channels", tags=["channels"])
 templates = Jinja2Templates(directory="app/admin/templates")
+templates.env.globals["static_v"] = STATIC_VERSION
 
 
 @router.get("")
 async def list_channels(request: Request):
-    pool = request.app.state.pool
-    rows = await pool.fetch(
-        "SELECT id, channel_identifier, identifier_type, title, is_active, join_status, "
-        "join_error, last_message_at FROM monitoring_channels ORDER BY added_at DESC"
+    channels = await load_channels(request.app.state.pool)
+    return templates.TemplateResponse(request, "channels.html", {"channels": channels, "active_page": "channels"})
+
+
+@router.get("/fragment")
+async def channels_fragment(request: Request):
+    channels = await load_channels(request.app.state.pool)
+    return templates.TemplateResponse(
+        request, "_channels_content.html", {"channels": channels}, headers={"Cache-Control": "no-store"}
     )
-    return templates.TemplateResponse(request, "channels.html", {"channels": rows, "active_page": "channels"})
 
 
 @router.post("")
