@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Безпека Офісу — Суми{% endblock %}</title>
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v={{ static_v }}">
 <script>
   document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');
 </script>
 </head>
 <body>
 <div class="app-shell">
-  <aside class="sidebar">
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="avatar">БО</div>
       <div>
@@ -37,7 +38,12 @@
   </aside>
   <div class="main">
     <div class="topbar">
-      <div class="breadcrumb">Панель / <span class="current">{% block breadcrumb %}{% endblock %}</span></div>
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Меню">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="breadcrumb">Панель / <span class="current">{% block breadcrumb %}{% endblock %}</span></div>
+      </div>
       <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Перемкнути тему">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
       </button>
@@ -47,6 +53,7 @@
     </div>
   </div>
 </div>
-<script src="/static/js/theme.js"></script>
+<script src="/static/js/theme.js?v={{ static_v }}"></script>
+<script src="/static/js/sidebar.js?v={{ static_v }}"></script>
 </body>
 </html>

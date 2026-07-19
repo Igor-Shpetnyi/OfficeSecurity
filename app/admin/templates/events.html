@@ -5,21 +5,10 @@
 <h1 class="page-title">Останні події</h1>
 <p class="page-subtitle">Сирий потік повідомлень з моніторинг-каналів (50 останніх)</p>
 
-<div class="card">
-  {% if events %}
-  <table class="data-table">
-    <tr><th>Час</th><th>Канал</th><th>Тип</th><th>Текст</th></tr>
-    {% for e in events %}
-    <tr>
-      <td>{{ e.detected_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
-      <td>{{ e.source_channel }}</td>
-      <td><span class="badge {{ 'badge-warning' if e.event_type == 'edit' else 'badge-neutral' }}">{{ e.event_type }}</span></td>
-      <td>{{ e.raw_text or "—" }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}
-  <div class="empty-state">Ще немає подій</div>
-  {% endif %}
+<div id="events-content">
+  {% include "_events_content.html" %}
 </div>
+
+<script src="/static/js/live-refresh.js?v={{ static_v }}"></script>
+<script>startLiveRefresh('events-content', '/events/recent/fragment', 5000);</script>
 {% endblock %}

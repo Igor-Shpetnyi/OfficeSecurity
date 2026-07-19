@@ -114,6 +114,9 @@ a {
 
 .content {
   padding: 24px;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 /* Sidebar */
@@ -190,9 +193,42 @@ a {
 }
 
 /* Top bar */
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .breadcrumb {
   font-size: 14px;
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-toggle {
+  display: none;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.menu-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .breadcrumb .current {
@@ -242,17 +278,73 @@ a {
   gap: 16px;
 }
 
-.grid-stats {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+.grid > * {
+  min-width: 0;
 }
 
-.grid-2 {
-  grid-template-columns: 2fr 1fr;
+/* Дашборд: одна сітка на 3 колонки для обох рядків (замість двох окремих
+   grid з різними пропорціями) — так межі карток 2-го ряду гарантовано
+   збігаються з межами карток 1-го ряду, а не лише приблизно співпадають
+   за шириною. */
+.dashboard-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.dashboard-grid .span-2 {
+  grid-column: span 2;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 88px;
 }
 
 @media (max-width: 900px) {
-  .grid-2 {
+  .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid .span-2 {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .menu-toggle {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 110;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    box-shadow: var(--shadow-dropdown);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+  }
+
+  .content {
+    padding: 16px;
+  }
+
+  .topbar {
+    padding: 0 16px;
   }
 }
 
@@ -262,10 +354,6 @@ a {
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--shadow-card);
-}
-
-.card + .card {
-  margin-top: 16px;
 }
 
 .card-header {
@@ -296,6 +384,10 @@ a {
 }
 
 /* Table */
+.table-scroll {
+  overflow-x: auto;
+}
+
 table.data-table {
   width: 100%;
   border-collapse: collapse;
@@ -445,6 +537,188 @@ table.data-table {
 
 .inline-form select.input {
   flex: 0 1 220px;
+}
+
+/* Events (message-style feed) — кожна подія власна картка (§5.3 design.md) */
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.event-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+.event-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.event-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-active);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+/* Компактний варіант аватарки — у таблицях (дашборд, канали) */
+.mini-channel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-channel-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.mini-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.mini-avatar-fallback {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.event-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.event-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.event-channel {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.event-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Кольорова ідентифікація каналу — реальний середній колір завантаженої
+   аватарки (app/common/avatars.py:extract_avg_color), а не хеш з фіксованого
+   набору; --chan-color виставляється inline-style на .event-item/.mini-channel,
+   тут лише читається через var(). Канали без фото — процедурний фолбек-колір
+   (та сама CSS-логіка, інше джерело значення). */
+.event-avatar, .mini-avatar-fallback {
+  background: color-mix(in srgb, var(--chan-color) 15%, transparent);
+  color: var(--chan-color);
+}
+
+.event-channel {
+  color: var(--chan-color);
+}
+
+.event-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Reply-прев'ю — тонка кольорова лінія зліва, як у самому Telegram */
+.event-reply-preview {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  border-left: 2px solid var(--chan-color);
+  padding: 2px 0 2px 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+
+.event-reply-channel {
+  font-weight: 600;
+  color: var(--chan-color);
+  flex-shrink: 0;
+}
+
+.event-reply-text {
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-reply-missing {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Історія редагувань та ланцюжок відповідей — той самий вигляд списку */
+.event-history-details,
+.event-chain-details {
+  margin-top: 6px;
+}
+
+.event-history-details summary,
+.event-chain-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.event-history-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.event-history-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  margin-right: 6px;
+}
+
+.event-history-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Empty state */

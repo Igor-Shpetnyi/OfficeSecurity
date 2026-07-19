@@ -1,0 +1,68 @@
+{% if events %}
+<div class="event-list">
+  {% for e in events %}
+  <div class="event-item" style="--chan-color: {{ e.chan_color }};">
+    {% if e.avatar_url %}
+    <img class="event-avatar" src="{{ e.avatar_url }}" alt="">
+    {% else %}
+    <div class="event-avatar">{{ e.initials }}</div>
+    {% endif %}
+    <div class="event-body">
+      <div class="event-meta">
+        <span class="event-channel">{{ e.channel_name }}</span>
+        {% if e.version_count > 1 %}
+        <span class="badge badge-neutral" title="Востаннє відредаговано о {{ e.detected_at.strftime('%Y-%m-%d %H:%M:%S') }}">ред. ×{{ e.version_count }}</span>
+        {% endif %}
+        <span class="event-time" title="{{ e.first_seen_at.strftime('%Y-%m-%d %H:%M:%S') }}">{{ e.relative_time }}</span>
+      </div>
+
+      {% if e.reply_chain %}
+      <div class="event-reply-preview">
+        <span class="event-reply-channel">{{ e.reply_chain[-1].channel_name }}</span>
+        <span class="event-reply-text">{{ (e.reply_chain[-1].raw_text or "медіа без тексту") | truncate(120) }}</span>
+      </div>
+      {% if e.reply_chain|length > 1 %}
+      <details class="event-chain-details" data-key="chain-{{ e.id }}">
+        <summary>Весь ланцюжок відповідей ({{ e.reply_chain|length + 1 }})</summary>
+        <ul class="event-history-list">
+          {% for node in e.reply_chain %}
+          <li>
+            <span class="event-history-time">{{ node.first_seen_at.strftime('%H:%M:%S') }}</span>
+            <span class="event-reply-channel">{{ node.channel_name }}:</span>
+            <span class="event-history-text">{{ node.raw_text or "—" }}</span>
+          </li>
+          {% endfor %}
+          <li>
+            <span class="event-history-time">{{ e.first_seen_at.strftime('%H:%M:%S') }}</span>
+            <span class="badge badge-neutral">поточне</span>
+            <span class="event-history-text">{{ e.raw_text or "—" }}</span>
+          </li>
+        </ul>
+      </details>
+      {% endif %}
+      {% elif e.reply_to_message_id %}
+      <div class="event-reply-preview event-reply-missing">У відповідь на повідомлення поза базою (#{{ e.reply_to_message_id }})</div>
+      {% endif %}
+
+      <div class="event-text">{{ e.raw_text or "—" }}</div>
+
+      {% if e.history %}
+      <details class="event-history-details" data-key="history-{{ e.id }}">
+        <summary>Історія редагувань ({{ e.history|length }})</summary>
+        <ul class="event-history-list">
+          {% for h in e.history %}
+          <li>
+            <span class="event-history-time">{{ h.detected_at.strftime('%H:%M:%S') }}</span>
+            <span class="event-history-text">{{ h.raw_text or "—" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">Ще немає подій</div>
+{% endif %}

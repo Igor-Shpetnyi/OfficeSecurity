@@ -15,32 +15,11 @@
     <button type="submit" class="btn btn-primary">Додати</button>
   </form>
 
-  {% if channels %}
-  <table class="data-table">
-    <tr><th>Ідентифікатор</th><th>Тип</th><th>Статус</th><th>Останнє повідомлення</th><th></th></tr>
-    {% for c in channels %}
-    <tr>
-      <td>{{ c.channel_identifier }}</td>
-      <td>{{ c.identifier_type }}</td>
-      <td>
-        <span class="badge {{ 'badge-positive' if c.join_status == 'joined' else ('badge-negative' if c.join_status == 'failed' else ('badge-neutral' if c.join_status == 'left' else 'badge-warning')) }}">
-          {{ c.join_status }}
-        </span>
-        {% if c.join_error %}<span style="color:var(--text-tertiary);font-size:12px;"> ({{ c.join_error }})</span>{% endif %}
-      </td>
-      <td>{{ c.last_message_at.strftime("%Y-%m-%d %H:%M:%S") if c.last_message_at else "—" }}</td>
-      <td>
-        {% if c.is_active %}
-        <form method="post" action="/channels/{{ c.id }}/deactivate">
-          <button type="submit" class="btn btn-danger btn-small">Вимкнути</button>
-        </form>
-        {% else %}<span class="badge badge-neutral">вимкнено</span>{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}
-  <div class="empty-state">Ще немає каналів</div>
-  {% endif %}
+  <div id="channels-content">
+    {% include "_channels_content.html" %}
+  </div>
 </div>
+
+<script src="/static/js/live-refresh.js"></script>
+<script>startLiveRefresh('channels-content', '/channels/fragment', 5000);</script>
 {% endblock %}

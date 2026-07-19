@@ -9,6 +9,6 @@
   {% include "_dashboard_content.html" %}
 </div>
 
-<script src="/static/js/live-refresh.js"></script>
+<script src="/static/js/live-refresh.js?v={{ static_v }}"></script>
 <script>startLiveRefresh('dashboard-content', '/dashboard/fragment', 5000);</script>
 {% endblock %}

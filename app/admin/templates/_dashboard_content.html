@@ -1,36 +1,44 @@
-<div class="grid grid-stats">
-  <div class="card">
+<div class="grid dashboard-grid">
+  <div class="card stat-card">
     <div class="stat-label">Активні канали</div>
     <div class="stat-value">{{ active_channels }}</div>
   </div>
-  <div class="card">
+  <div class="card stat-card">
     <div class="stat-label">Подій за 24 год</div>
     <div class="stat-value">{{ events_24h }}</div>
   </div>
-  <div class="card">
+  <div class="card stat-card">
     <div class="stat-label">Останнє повідомлення</div>
-    <div class="stat-value" style="font-size:16px;">{{ last_message_at.strftime("%Y-%m-%d %H:%M:%S") if last_message_at else "—" }}</div>
+    <div class="stat-value" title="{{ last_message_at.strftime('%Y-%m-%d %H:%M:%S') if last_message_at else '' }}">{{ last_message_relative or "—" }}</div>
   </div>
-</div>
 
-<div class="grid grid-2" style="margin-top:16px;">
-  <div class="card">
+  <div class="card span-2">
     <div class="card-header">
       <h2 class="card-title">Останні події</h2>
       <a href="/events/recent" class="btn btn-secondary btn-small">Усі →</a>
     </div>
     {% if events %}
+    <div class="table-scroll">
     <table class="data-table">
-      <tr><th>Час</th><th>Канал</th><th>Тип</th><th>Текст</th></tr>
+      <tr><th>Час</th><th>Канал</th><th>Текст</th></tr>
       {% for e in events %}
       <tr>
-        <td>{{ e.detected_at.strftime("%H:%M:%S") }}</td>
-        <td>{{ e.source_channel }}</td>
-        <td><span class="badge {{ 'badge-warning' if e.event_type == 'edit' else 'badge-neutral' }}">{{ e.event_type }}</span></td>
+        <td>{{ e.first_seen_at.strftime("%H:%M:%S") }}</td>
+        <td>
+          <div class="mini-channel" style="--chan-color: {{ e.chan_color }};">
+            {% if e.avatar_url %}
+            <img class="mini-avatar" src="{{ e.avatar_url }}" alt="">
+            {% else %}
+            <div class="mini-avatar mini-avatar-fallback">{{ e.initials }}</div>
+            {% endif %}
+            <span class="event-channel">{{ e.channel_name }}</span>
+          </div>
+        </td>
         <td>{{ (e.raw_text or "—") | truncate(80) }}</td>
       </tr>
       {% endfor %}
     </table>
+    </div>
     {% else %}
     <div class="empty-state">Ще немає подій</div>
     {% endif %}
@@ -42,11 +50,21 @@
       <a href="/channels" class="btn btn-secondary btn-small">Усі →</a>
     </div>
     {% if channels %}
+    <div class="table-scroll">
     <table class="data-table">
       <tr><th>Канал</th><th>Статус</th></tr>
       {% for c in channels %}
       <tr>
-        <td>{{ c.channel_identifier }}</td>
+        <td>
+          <div class="mini-channel" style="--chan-color: {{ c.chan_color }};">
+            {% if c.avatar_url %}
+            <img class="mini-avatar" src="{{ c.avatar_url }}" alt="">
+            {% else %}
+            <div class="mini-avatar mini-avatar-fallback">{{ c.initials }}</div>
+            {% endif %}
+            <span class="event-channel">{{ c.channel_name }}</span>
+          </div>
+        </td>
         <td>
           <span class="badge {{ 'badge-positive' if c.join_status == 'joined' else ('badge-negative' if c.join_status == 'failed' else 'badge-warning') }}">
             {{ c.join_status }}
@@ -55,6 +73,7 @@
       </tr>
       {% endfor %}
     </table>
+    </div>
     {% else %}
     <div class="empty-state">Немає каналів — <a href="/channels">додати</a></div>
     {% endif %}
