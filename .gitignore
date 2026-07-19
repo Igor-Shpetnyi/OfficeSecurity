@@ -13,3 +13,9 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Завантажені з Telegram аватарки каналів (похідні дані, не код)
+app/admin/static/avatars/
+
+# Рантайм-лог юзербота
+userbot.log
