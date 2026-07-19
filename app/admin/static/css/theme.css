@@ -653,6 +653,23 @@ table.data-table {
   word-break: break-word;
 }
 
+/* Виділення змін між версіями відредагованого повідомлення */
+.event-text ins,
+.event-history-text ins {
+  text-decoration: none;
+  background: color-mix(in srgb, var(--positive) 25%, transparent);
+  color: var(--text-primary);
+  border-radius: 2px;
+}
+
+.event-text del,
+.event-history-text del {
+  text-decoration: line-through;
+  background: color-mix(in srgb, var(--negative) 20%, transparent);
+  color: var(--text-secondary);
+  border-radius: 2px;
+}
+
 /* Reply-прев'ю — тонка кольорова лінія зліва, як у самому Telegram */
 .event-reply-preview {
   display: flex;

@@ -1,5 +1,9 @@
+import difflib
 import json
+import re
 from datetime import datetime
+
+from markupsafe import Markup, escape
 
 from app.common.avatars import avatar_url, fallback_color
 from app.common.channel_display import initials
@@ -55,13 +59,49 @@ _CHAIN_LEVEL_QUERY = (
 _MAX_CHAIN_DEPTH = 12  # запобіжник від зациклення на побитих/циклічних даних
 
 
+_TOKEN_RE = re.compile(r"\S+|\s+")
+
+
+def _word_diff_html(old_text: str | None, new_text: str) -> Markup:
+    """HTML для нової версії тексту з виділенням різниці проти попередньої:
+    додане — <ins>, видалене — <del>. old_text=None (немає попередньої
+    версії, це перший запис) — просто екранований текст без виділень."""
+    new_text = new_text or ""
+    if old_text is None:
+        return Markup("").join([escape(new_text)]) if new_text else escape("—")
+
+    old_tokens = _TOKEN_RE.findall(old_text or "")
+    new_tokens = _TOKEN_RE.findall(new_text)
+    matcher = difflib.SequenceMatcher(a=old_tokens, b=new_tokens, autojunk=False)
+    parts = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            parts.append(escape("".join(new_tokens[j1:j2])))
+        elif tag == "insert":
+            parts.append(Markup("<ins>") + escape("".join(new_tokens[j1:j2])) + Markup("</ins>"))
+        elif tag == "delete":
+            parts.append(Markup("<del>") + escape("".join(old_tokens[i1:i2])) + Markup("</del>"))
+        elif tag == "replace":
+            parts.append(Markup("<del>") + escape("".join(old_tokens[i1:i2])) + Markup("</del>"))
+            parts.append(Markup("<ins>") + escape("".join(new_tokens[j1:j2])) + Markup("</ins>"))
+    return Markup("").join(parts) if parts else escape("—")
+
+
 def _parse_history(raw_history) -> list[dict]:
+    """Усі версії повідомлення (оригінал + кожне реальне редагування),
+    від найстарішої до найновішої (остання = поточний raw_text події).
+    Кожній, крім першої, додається diff_html — HTML з <ins>/<del> проти
+    попередньої версії, щоб показати, що саме змінилось при редагуванні."""
     history = json.loads(raw_history) if isinstance(raw_history, str) else raw_history
     parsed = [
         {"raw_text": h["raw_text"], "detected_at": to_kyiv(datetime.fromisoformat(h["detected_at"]))}
         for h in history
     ]
     parsed.sort(key=lambda h: h["detected_at"])
+    prev_text = None
+    for version in parsed:
+        version["diff_html"] = _word_diff_html(prev_text, version["raw_text"] or "")
+        prev_text = version["raw_text"]
     return parsed
 
 
@@ -134,8 +174,16 @@ async def load_recent_events(pool, limit: int) -> list[dict]:
         for node in event["reply_chain"]:
             node["first_seen_at"] = to_kyiv(node["first_seen_at"])
 
+        # version_count — це к-сть рядків у events_log (оригінал + кожне
+        # реальне редагування), тобто N реальних редагувань = version_count-1.
+        # Раніше бейдж показував version_count як "ред. ×N", завищуючи
+        # кількість редагувань на 1 (напр. одне редагування -> "ред. ×2").
+        versions = _parse_history(event["history"])
+        event["edit_count"] = event["version_count"] - 1
         # Остання версія й так показана як основний текст картки — в історії
-        # лишаємо тільки попередні.
-        event["history"] = _parse_history(event["history"])[:-1]
+        # лишаємо тільки попередні; diff поточного тексту — проти
+        # останньої з них (що саме змінилось при останньому редагуванні).
+        event["history"] = versions[:-1]
+        event["text_diff_html"] = versions[-1]["diff_html"] if versions else escape(event["raw_text"] or "—")
 
     return events

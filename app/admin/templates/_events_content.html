@@ -10,8 +10,8 @@
     <div class="event-body">
       <div class="event-meta">
         <span class="event-channel">{{ e.channel_name }}</span>
-        {% if e.version_count > 1 %}
-        <span class="badge badge-neutral" title="Востаннє відредаговано о {{ e.detected_at.strftime('%Y-%m-%d %H:%M:%S') }}">ред. ×{{ e.version_count }}</span>
+        {% if e.edit_count > 0 %}
+        <span class="badge badge-neutral" title="Востаннє відредаговано о {{ e.detected_at.strftime('%Y-%m-%d %H:%M:%S') }}">ред. ×{{ e.edit_count }}</span>
         {% endif %}
         <span class="event-time" title="{{ e.first_seen_at.strftime('%Y-%m-%d %H:%M:%S') }}">{{ e.relative_time }}</span>
       </div>
@@ -44,7 +44,7 @@
       <div class="event-reply-preview event-reply-missing">У відповідь на повідомлення поза базою (#{{ e.reply_to_message_id }})</div>
       {% endif %}
 
-      <div class="event-text">{{ e.raw_text or "—" }}</div>
+      <div class="event-text">{{ e.text_diff_html | safe }}</div>
 
       {% if e.history %}
       <details class="event-history-details" data-key="history-{{ e.id }}">
@@ -53,7 +53,7 @@
           {% for h in e.history %}
           <li>
             <span class="event-history-time">{{ h.detected_at.strftime('%H:%M:%S') }}</span>
-            <span class="event-history-text">{{ h.raw_text or "—" }}</span>
+            <span class="event-history-text">{{ h.diff_html | safe }}</span>
           </li>
           {% endfor %}
         </ul>

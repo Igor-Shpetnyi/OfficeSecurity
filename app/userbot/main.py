@@ -58,6 +58,16 @@ async def main() -> None:
         StringSession(settings.telegram_session_string),
         settings.telegram_api_id,
         settings.telegram_api_hash,
+        # За замовчуванням Telethon обробляє кожен update у власному asyncio-таску
+        # (паралельно). Для одного повідомлення Telegram часто шле NewMessage і
+        # MessageEdited (напр. підтягування прев'ю посилання) буквально
+        # мілісекунда в мілісекунду — паралельна обробка ламала dedup-перевірку
+        # "чи текст справді змінився" в handlers.py (check-then-insert race:
+        # обидва handler'и встигали прочитати БД до того, як інший встиг
+        # записати), і в events_log потрапляли дублікати-редагування з
+        # ідентичним текстом. sequential_updates=True обробляє update'и по
+        # черзі в порядку надходження — усуває race в самому джерелі.
+        sequential_updates=True,
     )
     await client.start()
     logger.info("Userbot session started")

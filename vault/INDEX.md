@@ -31,6 +31,7 @@ status: active
 - [decisions/0007-edit-dedup-by-text-diff.md](decisions/0007-edit-dedup-by-text-diff.md)
 - [decisions/0008-kyiv-time-python-side-conversion.md](decisions/0008-kyiv-time-python-side-conversion.md)
 - [decisions/0009-avatar-color-hue-only.md](decisions/0009-avatar-color-hue-only.md)
+- [decisions/0010-sequential-updates-race-fix.md](decisions/0010-sequential-updates-race-fix.md)
 - [glossary/threat-levels.md](glossary/threat-levels.md)
 - [backlog/open-questions.md](backlog/open-questions.md)
 - [design/design.md](design/design.md) — обов'язково для будь-якого UI, див. правило в [CLAUDE.md](../CLAUDE.md)
