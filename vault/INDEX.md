@@ -1,6 +1,6 @@
 ---
 title: Vault Index
-updated: 2026-07-16
+updated: 2026-07-19
 status: active
 ---
 
@@ -28,6 +28,9 @@ status: active
 - [decisions/0004-redis-pubsub-channel-sync.md](decisions/0004-redis-pubsub-channel-sync.md)
 - [decisions/0005-docker-compose-local-infra.md](decisions/0005-docker-compose-local-infra.md)
 - [decisions/0006-shared-design-system-no-react.md](decisions/0006-shared-design-system-no-react.md)
+- [decisions/0007-edit-dedup-by-text-diff.md](decisions/0007-edit-dedup-by-text-diff.md)
+- [decisions/0008-kyiv-time-python-side-conversion.md](decisions/0008-kyiv-time-python-side-conversion.md)
+- [decisions/0009-avatar-color-hue-only.md](decisions/0009-avatar-color-hue-only.md)
 - [glossary/threat-levels.md](glossary/threat-levels.md)
 - [backlog/open-questions.md](backlog/open-questions.md)
 - [design/design.md](design/design.md) — обов'язково для будь-якого UI, див. правило в [CLAUDE.md](../CLAUDE.md)
