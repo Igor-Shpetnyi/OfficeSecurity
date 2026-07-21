@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS monitoring_channels (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     join_status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | joined | failed | left
     join_error TEXT,
+    pending_delete BOOLEAN NOT NULL DEFAULT FALSE, -- позначено на повне видалення з панелі (не лише "вимкнути")
     added_by BIGINT,
     added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_message_at TIMESTAMPTZ

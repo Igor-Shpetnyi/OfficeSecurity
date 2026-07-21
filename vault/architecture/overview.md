@@ -1,6 +1,6 @@
 ---
 title: Архітектура — огляд
-updated: 2026-07-19
+updated: 2026-07-21
 status: active
 source: ../../TZ_bezpeka_ofisu_sumy.md#2-архітектура
 ---
@@ -67,3 +67,7 @@ Telegram-канали → Userbot (Telethon, event handler)
 1. Приєднання (join) лімітоване `FloodWaitError`, тому черга з затримкою (ADR-0004) — саме слухання ліміту не має
 2. `TelegramClient(sequential_updates=True)` — update'и обробляються по черзі, не паралельними asyncio-тасками. Раніше (за замовчуванням Telethon) паралельна обробка ламала дедуп-перевірку no-op edit-ів через check-then-act race — див. [ADR-0010](../decisions/0010-sequential-updates-race-fix.md). Компроміс: пропускна здатність обмежена одним update за раз, прийнятно для очікуваних обсягів (кілька повідомлень/сек з 9 каналів)
 3. `asyncpg`-пул (`min_size=1, max_size=10`) — з запасом для реалістичних обсягів
+
+## Повне видалення каналів (не лише "вимкнути")
+
+`monitoring_channels.pending_delete BOOLEAN` — `POST /channels/{id}/delete` лише позначає рядок (`is_active=false, pending_delete=true`), не видаляє одразу. Нова `sync_pending_deletes()` (`app/userbot/channels.py`) обробляє чергу: якщо канал ще `join_status='joined'` — спершу виходить з нього (`LeaveChannelRequest`, той самий принцип, що й `sync_pending_leaves`), потім видаляє рядок незалежно від результату виходу. `sync_pending_leaves()` виключає `pending_delete=TRUE` зі свого запиту, щоб два обробники не змагались за один рядок. `events_log` не чіпається — не має FK на `monitoring_channels` (`source_channel` — текстове поле з marked ID), історія подій лишається і після видалення картки каналу.

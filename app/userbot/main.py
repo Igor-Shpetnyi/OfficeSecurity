@@ -10,6 +10,7 @@ from app.db.pool import create_pool
 from app.userbot.channels import (
     fetch_active_channels,
     sync_missing_metadata,
+    sync_pending_deletes,
     sync_pending_joins,
     sync_pending_leaves,
 )
@@ -36,6 +37,7 @@ async def channel_updates_listener(redis_client, pool, client, active_ids: set[i
         logger.info("Channel list update signal received")
         await sync_pending_joins(client, pool)
         await sync_pending_leaves(client, pool)
+        await sync_pending_deletes(client, pool)
         await refresh_active_ids(pool, active_ids)
 
 
@@ -45,6 +47,7 @@ async def periodic_join_sync(client, pool, active_ids: set[int], interval: int =
         await asyncio.sleep(interval)
         await sync_pending_joins(client, pool)
         await sync_pending_leaves(client, pool)
+        await sync_pending_deletes(client, pool)
         await sync_missing_metadata(client, pool)
         await refresh_active_ids(pool, active_ids)
 
@@ -75,6 +78,7 @@ async def main() -> None:
     active_ids: set[int] = set()
     await sync_pending_joins(client, pool)
     await sync_pending_leaves(client, pool)
+    await sync_pending_deletes(client, pool)
     await sync_missing_metadata(client, pool)
     await refresh_active_ids(pool, active_ids)
 

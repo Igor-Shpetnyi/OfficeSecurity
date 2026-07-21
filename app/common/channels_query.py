@@ -4,7 +4,8 @@ from app.common.formatting import to_kyiv
 
 _BASE_QUERY = (
     "SELECT id, channel_identifier, identifier_type, title, is_active, join_status, "
-    "join_error, telegram_id, avatar_color, last_message_at FROM monitoring_channels ORDER BY added_at DESC"
+    "join_error, telegram_id, avatar_color, last_message_at, pending_delete "
+    "FROM monitoring_channels ORDER BY added_at DESC"
 )
 
 

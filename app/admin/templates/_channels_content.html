@@ -26,11 +26,20 @@
     </td>
     <td>{{ c.last_message_at.strftime("%Y-%m-%d %H:%M:%S") if c.last_message_at else "—" }}</td>
     <td>
-      {% if c.is_active %}
-      <form method="post" action="/channels/{{ c.id }}/deactivate">
-        <button type="submit" class="btn btn-danger btn-small">Вимкнути</button>
-      </form>
-      {% else %}<span class="badge badge-neutral">вимкнено</span>{% endif %}
+      {% if c.pending_delete %}
+      <span class="badge badge-warning">видаляється…</span>
+      {% else %}
+      <div style="display:flex; gap:6px;">
+        {% if c.is_active %}
+        <form method="post" action="/channels/{{ c.id }}/deactivate">
+          <button type="submit" class="btn btn-danger btn-small">Вимкнути</button>
+        </form>
+        {% else %}<span class="badge badge-neutral">вимкнено</span>{% endif %}
+        <form method="post" action="/channels/{{ c.id }}/delete" onsubmit="return confirm('Видалити канал назавжди? Цю дію не можна скасувати.');">
+          <button type="submit" class="btn btn-danger btn-small">Видалити</button>
+        </form>
+      </div>
+      {% endif %}
     </td>
   </tr>
   {% endfor %}

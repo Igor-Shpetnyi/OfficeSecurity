@@ -147,7 +147,8 @@ async def sync_pending_leaves(client: TelegramClient, pool: asyncpg.Pool) -> Non
     """
     rows = await pool.fetch(
         "SELECT id, channel_identifier, telegram_id FROM monitoring_channels "
-        "WHERE is_active = FALSE AND join_status = 'joined' AND telegram_id IS NOT NULL"
+        "WHERE is_active = FALSE AND join_status = 'joined' AND telegram_id IS NOT NULL "
+        "AND pending_delete = FALSE"
     )
     for row in rows:
         try:
@@ -171,6 +172,46 @@ async def sync_pending_leaves(client: TelegramClient, pool: asyncpg.Pool) -> Non
             # ретраїмо вічно той самий провал щохвилини.
             logger.error("Failed to leave %s (treating as left): %s", row["channel_identifier"], e)
             await mark_join_status(pool, row["id"], "left", error=str(e))
+
+        await asyncio.sleep(JOIN_DELAY_SECONDS)
+
+
+async def sync_pending_deletes(client: TelegramClient, pool: asyncpg.Pool) -> None:
+    """Остаточно видаляє картки каналів, позначені на видалення в адмін-панелі.
+
+    Якщо акаунт ще підписаний — спершу виходить з каналу (той самий урок з
+    @durov 2026-07-16: не можна просто прибрати рядок і лишити підписку
+    висіти в Telegram назавжди), потім видаляє рядок незалежно від
+    попереднього join_status. events_log не чіпається — це лог подій,
+    не довідник каналів, історія лишається навіть якщо канал прибрали з панелі.
+    """
+    rows = await pool.fetch(
+        "SELECT id, channel_identifier, telegram_id, join_status FROM monitoring_channels "
+        "WHERE pending_delete = TRUE"
+    )
+    for row in rows:
+        if row["join_status"] == "joined" and row["telegram_id"] is not None:
+            try:
+                entity = await client.get_entity(row["telegram_id"])
+                await client(LeaveChannelRequest(entity))
+                logger.info("Left channel %s before delete", row["channel_identifier"])
+            except FloodWaitError as e:
+                logger.warning(
+                    "FloodWait %ss while leaving %s before delete, will retry on next sync",
+                    e.seconds,
+                    row["channel_identifier"],
+                )
+                await asyncio.sleep(e.seconds)
+                return
+            except Exception as e:
+                logger.warning(
+                    "Could not leave %s before delete (deleting card anyway): %s",
+                    row["channel_identifier"],
+                    e,
+                )
+
+        await pool.execute("DELETE FROM monitoring_channels WHERE id = $1", row["id"])
+        logger.info("Deleted channel card %s", row["channel_identifier"])
 
         await asyncio.sleep(JOIN_DELAY_SECONDS)
 

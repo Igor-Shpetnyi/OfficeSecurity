@@ -48,3 +48,16 @@ async def deactivate_channel(request: Request, channel_id: int):
     await pool.execute("UPDATE monitoring_channels SET is_active = FALSE WHERE id = $1", channel_id)
     await request.app.state.redis.publish(CHANNELS_UPDATE_TOPIC, "removed")
     return RedirectResponse(url="/channels", status_code=303)
+
+
+@router.post("/{channel_id}/delete")
+async def delete_channel(request: Request, channel_id: int):
+    pool = request.app.state.pool
+    # Не видаляє рядок одразу — юзербот спершу вийде з каналу (якщо ще
+    # підписаний), потім видалить картку сам (sync_pending_deletes).
+    await pool.execute(
+        "UPDATE monitoring_channels SET is_active = FALSE, pending_delete = TRUE WHERE id = $1",
+        channel_id,
+    )
+    await request.app.state.redis.publish(CHANNELS_UPDATE_TOPIC, "deleted")
+    return RedirectResponse(url="/channels", status_code=303)
