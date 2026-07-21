@@ -5,17 +5,39 @@ from telethon import TelegramClient, events
 
 logger = logging.getLogger(__name__)
 
+# Порядок важливий: message.gif — теж MessageMediaDocument з mime_type video/mp4,
+# тому перевіряється до .video; .sticker/.voice/.audio так само уточнюють
+# конкретний під-тип document перед загальним фолбеком.
+_MEDIA_CHECKS = (
+    ("photo", "📷 фото"),
+    ("gif", "🎞️ gif"),
+    ("video", "🎥 відео"),
+    ("sticker", "😀 стікер"),
+    ("voice", "🎤 голосове"),
+    ("audio", "🎵 аудіо"),
+    ("poll", "📊 опитування"),
+    ("document", "📄 файл"),
+)
+
+
+def _media_label(event) -> str | None:
+    for attr, label in _MEDIA_CHECKS:
+        if getattr(event, attr, None):
+            return label
+    return "📎 медіа" if event.media else None
+
 
 async def _store_event(pool: asyncpg.Pool, event, event_type: str) -> None:
     text = event.raw_text or ""
     await pool.execute(
         "INSERT INTO events_log "
-        "(raw_text, source_channel, telegram_message_id, reply_to_message_id, event_type, detected_at) "
-        "VALUES ($1, $2, $3, $4, $5, now())",
+        "(raw_text, source_channel, telegram_message_id, reply_to_message_id, media_label, event_type, detected_at) "
+        "VALUES ($1, $2, $3, $4, $5, $6, now())",
         text,
         str(event.chat_id),
         event.id,
         event.reply_to_msg_id,
+        _media_label(event),
         event_type,
     )
     await pool.execute(

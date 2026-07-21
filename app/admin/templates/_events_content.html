@@ -19,7 +19,7 @@
       {% if e.reply_chain %}
       <div class="event-reply-preview">
         <span class="event-reply-channel">{{ e.reply_chain[-1].channel_name }}</span>
-        <span class="event-reply-text">{{ (e.reply_chain[-1].raw_text or "медіа без тексту") | truncate(120) }}</span>
+        <span class="event-reply-text">{{ (e.reply_chain[-1].raw_text or e.reply_chain[-1].media_label or "—") | truncate(120) }}</span>
       </div>
       {% if e.reply_chain|length > 1 %}
       <details class="event-chain-details" data-key="chain-{{ e.id }}">
@@ -29,13 +29,13 @@
           <li>
             <span class="event-history-time">{{ node.first_seen_at.strftime('%H:%M:%S') }}</span>
             <span class="event-reply-channel">{{ node.channel_name }}:</span>
-            <span class="event-history-text">{{ node.raw_text or "—" }}</span>
+            <span class="event-history-text">{{ node.raw_text or node.media_label or "—" }}</span>
           </li>
           {% endfor %}
           <li>
             <span class="event-history-time">{{ e.first_seen_at.strftime('%H:%M:%S') }}</span>
             <span class="badge badge-neutral">поточне</span>
-            <span class="event-history-text">{{ e.raw_text or "—" }}</span>
+            <span class="event-history-text">{{ e.raw_text or e.media_label or "—" }}</span>
           </li>
         </ul>
       </details>

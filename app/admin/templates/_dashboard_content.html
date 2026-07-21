@@ -34,7 +34,7 @@
             <span class="event-channel">{{ e.channel_name }}</span>
           </div>
         </td>
-        <td>{{ (e.raw_text or "—") | truncate(80) }}</td>
+        <td>{{ (e.raw_text or e.media_label or "—") | truncate(80) }}</td>
       </tr>
       {% endfor %}
     </table>

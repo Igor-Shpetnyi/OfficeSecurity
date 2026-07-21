@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS events_log (
     source_channel VARCHAR(100),
     telegram_message_id BIGINT, -- стабільний ID повідомлення в Telegram; той самий для 'new' і наступних 'edit' цього ж поста
     reply_to_message_id BIGINT, -- telegram_message_id повідомлення, на яке відповідають (той самий канал), NULL якщо не reply
+    media_label VARCHAR(30), -- людська позначка медіа без тексту ("📷 фото" тощо), NULL якщо повідомлення без медіа
     event_type VARCHAR(10) NOT NULL DEFAULT 'new', -- 'new' | 'edit'
     detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     regex_matched_level VARCHAR(10),
