@@ -78,6 +78,8 @@ Telegram-канали → Userbot (Telethon, event handler)
 - `events_log`: `regex_matched_level`, `matched_status`, `matched_location`, `resolved_by` (`'lexicon'` наразі — Рівень 2 ще не підключений) — пишуться в `app/userbot/handlers.py::_store_event`
 - UI: `_level_badge.html` (Jinja-макрос) — бейджі рівня/локації/статусу в `/events` і на дашборді; окрема сторінка `/lexicon` (`app/admin/routers/lexicon.py`) — візуалізація обох словників + газетиру вулиць з поясненням призначення й статусу (чернетка)
 
+**Готча: два процеси, один кеш кожен.** `app/common/data/*.yaml` читається через `lru_cache` і в юзерботі, і в адмін-панелі — це два окремі Python-процеси з окремою памʼяттю. Правка `triggers.yaml`/`toponyms.yaml` на диску не підхоплюється жодним із них, поки процес не перезапущений: **обидва**, не лише той, що щойно змінювали. Забутий перезапуск адмін-панелі після зміни словника — вже стався 2026-07-21 (панель `/lexicon` показувала старий розподіл рівнів, хоча юзербот уже писав за новим).
+
 ## Повне видалення каналів (не лише "вимкнути")
 
 `monitoring_channels.pending_delete BOOLEAN` — `POST /channels/{id}/delete` лише позначає рядок (`is_active=false, pending_delete=true`), не видаляє одразу. Нова `sync_pending_deletes()` (`app/userbot/channels.py`) обробляє чергу: якщо канал ще `join_status='joined'` — спершу виходить з нього (`LeaveChannelRequest`, той самий принцип, що й `sync_pending_leaves`), потім видаляє рядок незалежно від результату виходу. `sync_pending_leaves()` виключає `pending_delete=TRUE` зі свого запиту, щоб два обробники не змагались за один рядок. `events_log` не чіпається — не має FK на `monitoring_channels` (`source_channel` — текстове поле з marked ID), історія подій лишається і після видалення картки каналу.
