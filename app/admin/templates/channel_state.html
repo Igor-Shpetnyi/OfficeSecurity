@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Активні цілі — Безпека Офісу{% endblock %}
+{% block breadcrumb %}Активні цілі{% endblock %}
+{% block content %}
+<h1 class="page-title">Активні цілі по каналах</h1>
+<p class="page-subtitle">
+  Рівень 2 конвеєра виявлення (ADR-0012) — Redis-стан "що канал зараз відстежує", TTL 20 хв.
+  Коли повідомлення без тригер-слова приходить, поки тут є свіжий запис для того ж каналу,
+  воно успадковує рівень/локацію звідси, а не губиться. Записи зникають самі за 20 хв без
+  оновлення (та сама константа, що "локаційно втрачена ціль", ТЗ §10).
+</p>
+
+<div class="card">
+  <div id="channel-state-content">
+    {% include "_channel_state_content.html" %}
+  </div>
+</div>
+
+<script src="/static/js/live-refresh.js"></script>
+<script>
+  startLiveRefresh('channel-state-content', '/channels/state/fragment', 5000);
+  startTtlTicker();
+</script>
+{% endblock %}

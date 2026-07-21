@@ -610,6 +610,14 @@ table.data-table {
   background: var(--bg-card-hover);
 }
 
+/* Підсвітка картки, на яку прогорнуло за посиланням "Джерело" з
+   /channels/state — JS-клас (live-refresh.js::highlightHashTarget), не
+   нативний :target, бо той губиться після заміни innerHTML при live-refresh. */
+.event-item.hash-highlight {
+  border-color: var(--warning);
+  box-shadow: 0 0 0 2px var(--warning);
+}
+
 .event-avatar {
   width: 38px;
   height: 38px;

@@ -4,7 +4,7 @@ import logging
 import asyncpg
 from telethon import TelegramClient, events
 
-from app.common import lexicon
+from app.common import channel_state, lexicon
 from app.common.normalize import normalize
 
 logger = logging.getLogger(__name__)
@@ -24,13 +24,12 @@ def _media_type(event) -> str | None:
     return "other" if event.media else None
 
 
-async def _store_event(pool: asyncpg.Pool, event, event_type: str) -> None:
+async def _store_event(pool: asyncpg.Pool, redis_client, event, event_type: str) -> None:
     text = event.raw_text or ""
     normalized = normalize(text)
-    trace = lexicon.analyze(normalized)
-    # Рівень 2 (стан активної цілі на канал) підключається окремим кроком —
-    # поки що resolved_by='lexicon' лише коли Рівень 1 щось зловив.
-    resolved_by = "lexicon" if (trace.level or trace.status or trace.location) else None
+    lex_trace = lexicon.analyze(normalized)
+    trace = await channel_state.resolve(redis_client, str(event.chat_id), lex_trace, event.id)
+    resolved_by = trace.layer if (trace.level or trace.status or trace.location) else None
     await pool.execute(
         "INSERT INTO events_log "
         "(raw_text, source_channel, telegram_message_id, reply_to_message_id, media_type, grouped_id, "
@@ -66,10 +65,12 @@ async def _last_stored_text(pool: asyncpg.Pool, chat_id: int, message_id: int) -
     )
 
 
-def register_message_handler(client: TelegramClient, pool: asyncpg.Pool, active_ids: set[int]) -> None:
+def register_message_handler(
+    client: TelegramClient, pool: asyncpg.Pool, redis_client, active_ids: set[int]
+) -> None:
     @client.on(events.NewMessage(func=lambda e: e.chat_id in active_ids))
     async def new_message_handler(event: events.NewMessage.Event) -> None:
-        await _store_event(pool, event, "new")
+        await _store_event(pool, redis_client, event, "new")
 
     @client.on(events.MessageEdited(func=lambda e: e.chat_id in active_ids))
     async def edited_message_handler(event: events.MessageEdited.Event) -> None:
@@ -83,4 +84,4 @@ def register_message_handler(client: TelegramClient, pool: asyncpg.Pool, active_
         last_text = await _last_stored_text(pool, event.chat_id, event.id)
         if last_text is not None and last_text == new_text:
             return
-        await _store_event(pool, event, "edit")
+        await _store_event(pool, redis_client, event, "edit")

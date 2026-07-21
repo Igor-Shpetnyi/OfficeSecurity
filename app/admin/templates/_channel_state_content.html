@@ -1,0 +1,25 @@
+{% set level_map = {'red': ('🔴', 'badge-negative'), 'orange': ('🟠', 'badge-warning'), 'yellow': ('🟡', 'badge-caution')} %}
+{% if slots %}
+<div class="table-scroll">
+<table class="data-table">
+  <tr><th>Канал</th><th>Слот</th><th>Рівень</th><th>Локація</th><th>Оновлено</th><th>TTL</th><th>Джерело</th></tr>
+  {% for s in slots %}
+  <tr>
+    <td>{{ s.channel_name }}</td>
+    <td class="text-tertiary">{{ s.slot }}</td>
+    <td>
+      {% if s.level %}
+      <span class="badge {{ level_map[s.level][1] }}">{{ level_map[s.level][0] }} {{ s.level }}</span>
+      {% endif %}
+    </td>
+    <td>{{ s.location or "" }}</td>
+    <td title="{{ s.updated_at_time }}">{{ s.updated_at_relative }}</td>
+    <td class="text-secondary" data-ttl-until="{{ s.ttl_expires_at_ms }}">{{ s.ttl_minutes }}:{{ '%02d' % s.ttl_seconds }}</td>
+    <td class="text-tertiary"><a href="/events/recent#event-{{ s.channel_id }}-{{ s.source_message_id }}">#{{ s.source_message_id }}</a></td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% else %}
+<div class="empty-state">Немає активних цілей — усі канали "чисті"</div>
+{% endif %}

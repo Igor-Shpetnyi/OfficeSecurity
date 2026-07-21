@@ -3,7 +3,7 @@
 {% if events %}
 <div class="event-list">
   {% for e in events %}
-  <div class="event-item" style="--chan-color: {{ e.chan_color }};">
+  <div class="event-item" id="event-{{ e.source_channel }}-{{ e.telegram_message_id }}" style="--chan-color: {{ e.chan_color }};">
     {% if e.avatar_url %}
     <img class="event-avatar" src="{{ e.avatar_url }}" alt="">
     {% else %}

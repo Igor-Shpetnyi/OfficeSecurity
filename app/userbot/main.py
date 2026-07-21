@@ -82,7 +82,7 @@ async def main() -> None:
     await sync_missing_metadata(client, pool)
     await refresh_active_ids(pool, active_ids)
 
-    register_message_handler(client, pool, active_ids)
+    register_message_handler(client, pool, redis_client, active_ids)
 
     await asyncio.gather(
         client.run_until_disconnected(),

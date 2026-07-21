@@ -1,9 +1,29 @@
 // Періодично підвантажує HTML-фрагмент і підміняє вміст контейнера —
 // без повного перезавантаження сторінки, без нових залежностей (без HTMX/React).
 (function () {
+  // Підсвітка елемента за location.hash (посилання "Джерело" з
+  // /channels/state на конкретну подію) — не нативний CSS :target, бо той
+  // губиться після заміни innerHTML нижче (елемент з тим самим id
+  // з'являється заново, але браузер уже не вважає його "тим самим target").
+  // Клас натомість переприкладається вручну щоразу після рефрешу.
+  function highlightHashTarget(container) {
+    if (!location.hash) return;
+    var prev = container.querySelector('.hash-highlight');
+    if (prev) prev.classList.remove('hash-highlight');
+    var target;
+    try {
+      target = container.querySelector(location.hash);
+    } catch (e) {
+      target = null; // невалідний селектор у hash — просто пропускаємо
+    }
+    if (target) target.classList.add('hash-highlight');
+  }
+
   function startLiveRefresh(containerId, url, intervalMs) {
     var container = document.getElementById(containerId);
     if (!container) return;
+
+    highlightHashTarget(container);
 
     function refresh() {
       // <details data-key> (розгорнутий довгий текст, історія редагувань,
@@ -23,6 +43,7 @@
             var d = container.querySelector('details[data-key="' + key + '"]');
             if (d) d.open = true;
           });
+          highlightHashTarget(container);
         })
         .catch(function () {
           // мовчки пропускаємо один цикл — наступний спробує знову
@@ -32,5 +53,26 @@
     setInterval(refresh, intervalMs);
   }
 
+  // Посекундний відлік TTL між циклами live-refresh (5с) — рахує з
+  // data-ttl-until (epoch ms, проставлений сервером у момент рендеру
+  // фрагмента), не чекаючи наступного fetch(). Читає DOM щосекунди наново
+  // (querySelectorAll), тому автоматично підхоплює елементи, підставлені
+  // startLiveRefresh() через заміну innerHTML — окремого перезв'язування не треба.
+  function startTtlTicker() {
+    function tick() {
+      var now = Date.now();
+      Array.prototype.forEach.call(document.querySelectorAll('[data-ttl-until]'), function (el) {
+        var remainingMs = Number(el.dataset.ttlUntil) - now;
+        var totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+        var minutes = Math.floor(totalSeconds / 60);
+        var seconds = totalSeconds % 60;
+        el.textContent = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+      });
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
   window.startLiveRefresh = startLiveRefresh;
+  window.startTtlTicker = startTtlTicker;
 })();
