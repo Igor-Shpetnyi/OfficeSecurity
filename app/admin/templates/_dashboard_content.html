@@ -1,3 +1,4 @@
+{% from "_media_icon.html" import media_icon %}
 <div class="grid dashboard-grid">
   <div class="card stat-card">
     <div class="stat-label">Активні канали</div>
@@ -34,7 +35,16 @@
             <span class="event-channel">{{ e.channel_name }}</span>
           </div>
         </td>
-        <td>{{ (e.raw_text or e.media_label or "—") | truncate(80) }}</td>
+        <td>
+          {% if e.media_label %}
+          <span class="attachment-stub attachment-stub-compact">{{ media_icon(e.media_type) }}{{ e.media_label }}</span>
+          {% endif %}
+          {% if e.raw_text %}
+          {{ e.raw_text | truncate(80) }}
+          {% elif not e.media_label %}
+          —
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </table>

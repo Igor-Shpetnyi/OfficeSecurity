@@ -738,6 +738,43 @@ table.data-table {
   word-break: break-word;
 }
 
+/* Заглушка вкладення (фото/відео/стікер тощо без завантаженого файлу) —
+   окремий блок над текстом, а не вбудований у текст напис. Клас
+   attachment-stub-<type> зарезервований під майбутню заміну на реальний
+   рендер вкладення (напр. .attachment-stub-photo зможе показувати <img>
+   замість іконки, коли з'явиться завантаження оригінальних файлів). */
+.attachment-stub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-active);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.attachment-stub svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.attachment-stub-compact {
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  margin-bottom: 0;
+}
+
+.attachment-stub-compact svg {
+  width: 13px;
+  height: 13px;
+}
+
 /* Empty state */
 .empty-state {
   color: var(--text-tertiary);

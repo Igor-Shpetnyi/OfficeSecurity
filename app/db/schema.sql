@@ -25,7 +25,17 @@ CREATE TABLE IF NOT EXISTS events_log (
     source_channel VARCHAR(100),
     telegram_message_id BIGINT, -- стабільний ID повідомлення в Telegram; той самий для 'new' і наступних 'edit' цього ж поста
     reply_to_message_id BIGINT, -- telegram_message_id повідомлення, на яке відповідають (той самий канал), NULL якщо не reply
-    media_label VARCHAR(30), -- людська позначка медіа без тексту ("📷 фото" тощо), NULL якщо повідомлення без медіа
+    -- Тип вкладення (короткий код: photo | video | gif | sticker | voice | audio
+    -- | poll | document | other), NULL якщо без медіа. Людський підпис/іконка —
+    -- app/common/media.py, не дублюється тут. Заглушка на місці реального
+    -- вкладення — далі шлях до завантаженого файлу піде окремою колонкою,
+    -- цей код уже розрізняє тип, готовий під те розширення.
+    media_type VARCHAR(20),
+    grouped_id BIGINT, -- Telegram album/media-group ID; NULL якщо не частина альбому.
+    -- Кілька фото одним постом з одним підписом — Telegram кладе підпис лише
+    -- в ОДНЕ повідомлення групи, решта приходять з порожнім текстом (не наш
+    -- баг захоплення). Поки що кожне фото — окрема картка в стрічці; grouped_id
+    -- зберігається про запас під майбутнє об'єднання альбому в одну картку.
     event_type VARCHAR(10) NOT NULL DEFAULT 'new', -- 'new' | 'edit'
     detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     regex_matched_level VARCHAR(10),
