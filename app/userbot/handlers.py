@@ -1,3 +1,4 @@
+import json
 import logging
 
 import asyncpg
@@ -26,17 +27,16 @@ def _media_type(event) -> str | None:
 async def _store_event(pool: asyncpg.Pool, event, event_type: str) -> None:
     text = event.raw_text or ""
     normalized = normalize(text)
-    matched_level = lexicon.resolve_level(normalized)
-    matched_status = lexicon.match_status(normalized)
-    matched_location = lexicon.match_location(normalized)
+    trace = lexicon.analyze(normalized)
     # Рівень 2 (стан активної цілі на канал) підключається окремим кроком —
     # поки що resolved_by='lexicon' лише коли Рівень 1 щось зловив.
-    resolved_by = "lexicon" if (matched_level or matched_status or matched_location) else None
+    resolved_by = "lexicon" if (trace.level or trace.status or trace.location) else None
     await pool.execute(
         "INSERT INTO events_log "
         "(raw_text, source_channel, telegram_message_id, reply_to_message_id, media_type, grouped_id, "
-        "event_type, detected_at, regex_matched_level, matched_status, matched_location, resolved_by) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9, $10, $11)",
+        "event_type, detected_at, regex_matched_level, matched_status, matched_location, resolved_by, "
+        "decision_trace) "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9, $10, $11, $12)",
         text,
         str(event.chat_id),
         event.id,
@@ -44,10 +44,11 @@ async def _store_event(pool: asyncpg.Pool, event, event_type: str) -> None:
         _media_type(event),
         event.grouped_id,
         event_type,
-        matched_level,
-        matched_status,
-        matched_location,
+        trace.level,
+        trace.status,
+        trace.location,
         resolved_by,
+        json.dumps(trace.as_dict()),
     )
     await pool.execute(
         "UPDATE monitoring_channels SET last_message_at = now() WHERE telegram_id = $1",

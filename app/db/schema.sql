@@ -48,6 +48,11 @@ CREATE TABLE IF NOT EXISTS events_log (
     matched_status VARCHAR(20),
     matched_location VARCHAR(100),
     resolved_by VARCHAR(20),
+    -- ЧЕРЕЗ ЩО ухвалено рішення вище (ADR-0013), не лише саме рішення:
+    -- {"layer": "lexicon", "level_evidence": "зловлено слово \"каб\" (red)", ...}.
+    -- Рівень, що ухвалив рішення (`layer`), пише власний trace за тим самим
+    -- принципом — Рівень 2/3 не винаходять окрему структуру.
+    decision_trace JSONB,
     llm_response JSONB,
     dedup_hash VARCHAR(64),
     confirmation_count INT DEFAULT 1

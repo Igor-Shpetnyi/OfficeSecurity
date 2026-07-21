@@ -1,5 +1,5 @@
 {% from "_media_icon.html" import media_icon %}
-{% from "_level_badge.html" import level_badges %}
+{% from "_level_badge.html" import level_badges, decision_explanation %}
 {% if events %}
 <div class="event-list">
   {% for e in events %}
@@ -17,6 +17,7 @@
         {% endif %}
         <span class="event-time" title="{{ e.first_seen_at.strftime('%Y-%m-%d %H:%M:%S') }}">{{ e.relative_time }}</span>
         {{ level_badges(e) }}
+        {{ decision_explanation(e) }}
       </div>
 
       {% if e.reply_chain %}

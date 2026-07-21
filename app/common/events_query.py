@@ -20,7 +20,7 @@ _QUERY = (
     "  SELECT DISTINCT ON (e.source_channel, e.telegram_message_id) "
     "    e.id, e.raw_text, e.detected_at, e.telegram_message_id, "
     "    e.source_channel, e.reply_to_message_id, e.media_type, e.grouped_id, "
-    "    e.regex_matched_level, e.matched_status, e.matched_location, e.resolved_by, "
+    "    e.regex_matched_level, e.matched_status, e.matched_location, e.resolved_by, e.decision_trace, "
     "    COALESCE(c.title, c.channel_identifier, e.source_channel) AS channel_name, "
     "    c.telegram_id AS channel_telegram_id, "
     "    c.avatar_color, "
@@ -180,6 +180,8 @@ async def load_recent_events(pool, limit: int) -> list[dict]:
         event["detected_at"] = to_kyiv(event["detected_at"])
         event["first_seen_at"] = to_kyiv(event["first_seen_at"])
         event["media_label"] = media_label(event.get("media_type"))
+        raw_trace = event.get("decision_trace")
+        event["decision_trace"] = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
         for node in event["reply_chain"]:
             node["first_seen_at"] = to_kyiv(node["first_seen_at"])
             node["media_label"] = media_label(node.get("media_type"))

@@ -27,3 +27,18 @@
 </span>
 {% endif %}
 {% endmacro %}
+
+{% macro decision_explanation(e, key_prefix="trace") %}
+{% set t = e.decision_trace %}
+{% if t and (t.level_evidence or t.status_evidence or t.location_evidence) %}
+<details class="event-trace-details" data-key="{{ key_prefix }}-{{ e.id }}">
+  <summary>Чому?</summary>
+  <ul class="event-trace-list">
+    <li><span class="event-trace-layer">{{ t.layer }}</span></li>
+    {% if t.level_evidence %}<li>{{ t.level_evidence }}</li>{% endif %}
+    {% if t.status_evidence %}<li>{{ t.status_evidence }}</li>{% endif %}
+    {% if t.location_evidence %}<li>{{ t.location_evidence }}</li>{% endif %}
+  </ul>
+</details>
+{% endif %}
+{% endmacro %}
