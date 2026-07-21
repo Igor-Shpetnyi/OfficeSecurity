@@ -604,6 +604,7 @@ table.data-table {
   background: var(--bg-card);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
+  transition: border-color 0.6s ease, box-shadow 0.6s ease;
 }
 
 .event-item:hover {

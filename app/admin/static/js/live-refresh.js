@@ -2,21 +2,28 @@
 // без повного перезавантаження сторінки, без нових залежностей (без HTMX/React).
 (function () {
   // Підсвітка елемента за location.hash (посилання "Джерело" з
-  // /channels/state на конкретну подію) — не нативний CSS :target, бо той
-  // губиться після заміни innerHTML нижче (елемент з тим самим id
-  // з'являється заново, але браузер уже не вважає його "тим самим target").
-  // Клас натомість переприкладається вручну щоразу після рефрешу.
+  // /channels/state на конкретну подію) — не нативний CSS :target (губиться
+  // після заміни innerHTML нижче — елемент з тим самим id з'являється
+  // заново, але браузер уже не вважає його "тим самим target"). Одноразова
+  // дія за завантаження сторінки: прокручує в центр в'юпорта, підсвічує на
+  // кілька секунд, потім знімає — і одразу чистить hash з URL, щоб наступні
+  // цикли live-refresh (кожні 5с) не намагались повторити те саме знову.
   function highlightHashTarget(container) {
     if (!location.hash) return;
-    var prev = container.querySelector('.hash-highlight');
-    if (prev) prev.classList.remove('hash-highlight');
     var target;
     try {
       target = container.querySelector(location.hash);
     } catch (e) {
       target = null; // невалідний селектор у hash — просто пропускаємо
     }
-    if (target) target.classList.add('hash-highlight');
+    if (!target) return;
+
+    target.classList.add('hash-highlight');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    history.replaceState(null, '', location.pathname + location.search);
+    setTimeout(function () {
+      target.classList.remove('hash-highlight');
+    }, 3000);
   }
 
   function startLiveRefresh(containerId, url, intervalMs) {
