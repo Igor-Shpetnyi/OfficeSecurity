@@ -33,6 +33,7 @@ status: active
 - [decisions/0009-avatar-color-hue-only.md](decisions/0009-avatar-color-hue-only.md)
 - [decisions/0010-sequential-updates-race-fix.md](decisions/0010-sequential-updates-race-fix.md)
 - [decisions/0011-media-stub-structured-type.md](decisions/0011-media-stub-structured-type.md)
+- [decisions/0012-three-layer-detection-not-regex-then-llm.md](decisions/0012-three-layer-detection-not-regex-then-llm.md) — див. також повну специфікацію [`../TZ_konveyer_analizu_zagroz.md`](../TZ_konveyer_analizu_zagroz.md)
 - [glossary/threat-levels.md](glossary/threat-levels.md)
 - [backlog/open-questions.md](backlog/open-questions.md)
 - [design/design.md](design/design.md) — обов'язково для будь-якого UI, див. правило в [CLAUDE.md](../CLAUDE.md)
@@ -40,3 +41,5 @@ status: active
 ## Джерело правди
 
 Технічне завдання проєкту: [`../TZ_bezpeka_ofisu_sumy.md`](../TZ_bezpeka_ofisu_sumy.md). Vault не дублює ТЗ — він фіксує те, чого в ТЗ немає: хід розробки, рішення що приймались під час імплементації, питання що виникли.
+
+Доповнення до ТЗ (свідомий відхід від розділів 5/8/9/15 оригіналу, за результатами дослідження реальних даних — [ADR-0012](decisions/0012-three-layer-detection-not-regex-then-llm.md)): [`../TZ_konveyer_analizu_zagroz.md`](../TZ_konveyer_analizu_zagroz.md).
