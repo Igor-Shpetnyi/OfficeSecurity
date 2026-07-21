@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Словники — Безпека Офісу{% endblock %}
+{% block breadcrumb %}Словники{% endblock %}
+{% block content %}
+<h1 class="page-title">Словники виявлення загроз</h1>
+<p class="page-subtitle">
+  Лексика й газетир Рівня 1 конвеєра виявлення (ADR-0012) — визначають, який рівень загрози
+  (🔴/🟠/🟡) і яку локацію отримує кожне вхідне повідомлення. Це чернетка, зібрана з аналізу
+  реальних повідомлень за тиждень — варто періодично переглядати й доповнювати за фактичними
+  пропусками в стрічці подій. Наразі правка — вручну у файлах
+  <code>app/common/data/triggers.yaml</code> і <code>app/common/data/toponyms.yaml</code>;
+  автоматизовані пропозиції від ШІ (офлайн-пошук прогалин, Рівень 3) — заплановано на майбутнє,
+  ще не реалізовано.
+</p>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Словник тригерів</h2>
+  </div>
+  {% set level_labels = {'red': '🔴 red', 'orange': '🟠 orange', 'yellow': '🟡 yellow', 'status': '✅ status (не рівень — маркер зміни стану)'} %}
+  {% set level_badge_class = {'red': 'badge-negative', 'orange': 'badge-warning', 'yellow': 'badge-caution', 'status': 'badge-neutral'} %}
+  {% for level, words in levels %}
+  <div class="lexicon-level">
+    <div class="lexicon-level-label">{{ level_labels[level] }} <span class="text-tertiary">({{ words|length }})</span></div>
+    <div class="lexicon-chips">
+      {% for w in words %}
+      <span class="badge {{ level_badge_class[level] }}">{{ w }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Газетир топонімів</h2>
+    <span class="text-tertiary">{{ toponyms|length }} записів, Сумщина й суміжне</span>
+  </div>
+  <div class="table-scroll">
+  <table class="data-table">
+    <tr><th>Канонічна назва</th><th>Словоформи</th></tr>
+    {% for t in toponyms %}
+    <tr>
+      <td>{{ t.canonical }}</td>
+      <td class="text-secondary">{{ t.forms|join(", ") }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Вулиці Сум</h2>
+    <span class="text-tertiary">{{ streets|length }} записів, офіційний реєстр Сумської міськради</span>
+  </div>
+  <p class="text-secondary">
+    Влучання по вулиці в самих Сумах — пряміший і критичніший сигнал для офісу, ніж згадка
+    районного центру, тому окрема категорія від газетиру вище. <strong>Ще не підключено до
+    matching-логіки</strong> — багато назв вулиць звичайні українські слова ("Соснова",
+    "Весняна"), а частина буквально збігається з районними топонімами (Білопільська/Охтирська/
+    Хотінська тощо — та сама колізія, що вище, свідомо відкладена). Підключення вимагає окремої
+    логіки: матчити лише в парі з "вул."/"вулиця" перед назвою, не голим підрядком.
+  </p>
+  <details class="event-history-details" data-key="streets-list">
+    <summary>Повний список ({{ streets|length }})</summary>
+    <div class="table-scroll">
+    <table class="data-table">
+      <tr><th>Тип</th><th>Назва</th><th>Стара назва</th></tr>
+      {% for s in streets %}
+      <tr>
+        <td class="text-secondary">{{ s.type }}</td>
+        <td>{{ s.name }}</td>
+        <td class="text-tertiary">{{ s.old_name or "" }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+  </details>
+</div>
+{% endblock %}

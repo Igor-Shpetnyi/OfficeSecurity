@@ -1,4 +1,5 @@
 {% from "_media_icon.html" import media_icon %}
+{% from "_level_badge.html" import level_badges %}
 <div class="grid dashboard-grid">
   <div class="card stat-card">
     <div class="stat-label">Активні канали</div>
@@ -36,6 +37,7 @@
           </div>
         </td>
         <td>
+          {{ level_badges(e) }}
           {% if e.media_label %}
           <span class="attachment-stub attachment-stub-compact">{{ media_icon(e.media_type) }}{{ e.media_label }}</span>
           {% endif %}

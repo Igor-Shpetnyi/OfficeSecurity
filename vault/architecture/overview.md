@@ -32,7 +32,7 @@ Telegram-канали → Userbot (Telethon, event handler)
 - `app/admin/` — FastAPI: CRUD каналів (`routers/channels.py`), стрічка подій з live-refresh (`routers/events.py`), дашборд (`routers/dashboard.py`), Basic Auth (`common/auth.py`)
 - Синхронізація списку каналів між панеллю і юзерботом — Redis pub/sub + periodic poll, див. [ADR-0004](../decisions/0004-redis-pubsub-channel-sync.md)
 - Схема БД: `app/db/schema.sql` (`monitoring_channels` — тепер з `title`/`avatar_color`; `events_log` — тепер з `reply_to_message_id`)
-- `regex_matched_level`/`llm_response` в `events_log` поки NULL — RegEx-двигун і LLM-шар ще не реалізовані (наступні етапи)
+- `regex_matched_level` — реалізовано, див. "Рівень 1 конвеєра виявлення" нижче. `llm_response` поки NULL — LLM-шар (Рівень 3, ADR-0012) ще не реалізований
 
 ## Адмін-панель: збагачення даних каналу/подій
 
@@ -67,6 +67,16 @@ Telegram-канали → Userbot (Telethon, event handler)
 1. Приєднання (join) лімітоване `FloodWaitError`, тому черга з затримкою (ADR-0004) — саме слухання ліміту не має
 2. `TelegramClient(sequential_updates=True)` — update'и обробляються по черзі, не паралельними asyncio-тасками. Раніше (за замовчуванням Telethon) паралельна обробка ламала дедуп-перевірку no-op edit-ів через check-then-act race — див. [ADR-0010](../decisions/0010-sequential-updates-race-fix.md). Компроміс: пропускна здатність обмежена одним update за раз, прийнятно для очікуваних обсягів (кілька повідомлень/сек з 9 каналів)
 3. `asyncpg`-пул (`min_size=1, max_size=10`) — з запасом для реалістичних обсягів
+
+## Рівень 1 конвеєра виявлення (лексика + газетир)
+
+Перший з трьох рівнів з [ADR-0012](../decisions/0012-three-layer-detection-not-regex-then-llm.md) — реалізовано й працює на живому потоці з 2026-07-21. Деталі й обґрунтування — [`TZ_konveyer_analizu_zagroz.md`](../../TZ_konveyer_analizu_zagroz.md), тут лише карта коду.
+
+- `app/common/normalize.py` — lowercase + згортання пробілів, без вирізання рекламних футерів (не заважають matching)
+- `app/common/lexicon.py` — читає `app/common/data/triggers.yaml` (словник тригерів по рівнях + окремо status-маркери) і `toponyms.yaml` (газетир, canonical + відмінкові форми, fuzzy-fallback через `difflib` для одруківок), кешує через `lru_cache`. `match_level()`/`match_status()`/`match_location()` — незалежні примітиви; `resolve_level()` — комбінатор, що гасить рівень, якщо в тому самому повідомленні є status-маркер (див. ADR-0012, "Уточнення 2026-07-21")
+- `app/common/data/streets_sumy.yaml` — окремий газетир вулиць Сум (648 записів, офіційний реєстр міськради), навмисно **не підключений** до `match_location()` — колізії з районними топонімами (Білопільська/Охтирська/Хотінська тощо) і звичайні слова у назвах вулиць вимагають окремої логіки матчингу (лише в парі з "вул."/"вулиця"), не голого підрядка
+- `events_log`: `regex_matched_level`, `matched_status`, `matched_location`, `resolved_by` (`'lexicon'` наразі — Рівень 2 ще не підключений) — пишуться в `app/userbot/handlers.py::_store_event`
+- UI: `_level_badge.html` (Jinja-макрос) — бейджі рівня/локації/статусу в `/events` і на дашборді; окрема сторінка `/lexicon` (`app/admin/routers/lexicon.py`) — візуалізація обох словників + газетиру вулиць з поясненням призначення й статусу (чернетка)
 
 ## Повне видалення каналів (не лише "вимкнути")
 

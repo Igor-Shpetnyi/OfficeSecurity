@@ -20,6 +20,7 @@ _QUERY = (
     "  SELECT DISTINCT ON (e.source_channel, e.telegram_message_id) "
     "    e.id, e.raw_text, e.detected_at, e.telegram_message_id, "
     "    e.source_channel, e.reply_to_message_id, e.media_type, e.grouped_id, "
+    "    e.regex_matched_level, e.matched_status, e.matched_location, e.resolved_by, "
     "    COALESCE(c.title, c.channel_identifier, e.source_channel) AS channel_name, "
     "    c.telegram_id AS channel_telegram_id, "
     "    c.avatar_color, "

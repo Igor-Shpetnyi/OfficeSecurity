@@ -1,4 +1,5 @@
 {% from "_media_icon.html" import media_icon %}
+{% from "_level_badge.html" import level_badges %}
 {% if events %}
 <div class="event-list">
   {% for e in events %}
@@ -15,6 +16,7 @@
         <span class="badge badge-neutral" title="Востаннє відредаговано о {{ e.detected_at.strftime('%Y-%m-%d %H:%M:%S') }}">ред. ×{{ e.edit_count }}</span>
         {% endif %}
         <span class="event-time" title="{{ e.first_seen_at.strftime('%Y-%m-%d %H:%M:%S') }}">{{ e.relative_time }}</span>
+        {{ level_badges(e) }}
       </div>
 
       {% if e.reply_chain %}

@@ -1,0 +1,29 @@
+{% macro level_badges(e) %}
+{% set level_map = {
+  'red':    ('🔴', 'badge-negative'),
+  'orange': ('🟠', 'badge-warning'),
+  'yellow': ('🟡', 'badge-caution'),
+} %}
+{% set origin_map = {
+  'lexicon': None,
+  'channel_state': '🔗 успадковано',
+  'channel_state_ambiguous': '❓ неоднозначно',
+  'llm': '🤖 ШІ',
+} %}
+{% if e.regex_matched_level or e.matched_location or e.matched_status %}
+<span class="level-badges">
+  {% if e.regex_matched_level %}
+  <span class="badge {{ level_map[e.regex_matched_level][1] }}">{{ level_map[e.regex_matched_level][0] }} {{ e.regex_matched_level }}</span>
+  {% endif %}
+  {% if e.matched_location %}
+  <span class="badge badge-neutral">📍 {{ e.matched_location }}</span>
+  {% endif %}
+  {% if e.matched_status %}
+  <span class="badge badge-neutral">✅ {{ e.matched_status }}</span>
+  {% endif %}
+  {% if e.resolved_by and origin_map.get(e.resolved_by) %}
+  <span class="level-origin">{{ origin_map[e.resolved_by] }}</span>
+  {% endif %}
+</span>
+{% endif %}
+{% endmacro %}

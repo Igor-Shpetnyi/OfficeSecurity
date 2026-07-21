@@ -23,6 +23,7 @@
   --positive: #34c759;
   --negative: #ff3b30;
   --warning: #ff9f0a;
+  --caution: #ffd60a;
   --badge-pro: #0a84ff;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -52,6 +53,7 @@
   --positive: #34c759;
   --negative: #ff3b30;
   --warning: #ff9f0a;
+  --caution: #ffd60a;
   --badge-pro: #0a84ff;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border);
@@ -500,6 +502,54 @@ table.data-table {
 .badge-neutral {
   background: var(--bg-active);
   color: var(--text-secondary);
+}
+
+.badge-caution {
+  background: rgba(255, 214, 10, 0.15);
+  color: var(--caution);
+}
+
+/* Рівень 1-2 конвеєра виявлення (ADR-0012): рівень загрози + локація + маркер
+   походження (пряме зловлення / успадковано зі стану каналу / неоднозначно). */
+.level-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.level-origin {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* Сторінка /lexicon — словник тригерів + газетир (ADR-0012) */
+.lexicon-level {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lexicon-level:last-child {
+  border-bottom: none;
+}
+
+.lexicon-level-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.lexicon-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 /* Forms */

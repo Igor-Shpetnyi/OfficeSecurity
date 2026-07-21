@@ -38,7 +38,16 @@ CREATE TABLE IF NOT EXISTS events_log (
     -- зберігається про запас під майбутнє об'єднання альбому в одну картку.
     event_type VARCHAR(10) NOT NULL DEFAULT 'new', -- 'new' | 'edit'
     detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Рівень 1 конвеєра виявлення (ADR-0012, app/common/lexicon.py):
+    -- regex_matched_level — найвищий зловлений рівень загрози (red/orange/yellow),
+    -- або успадкований з Рівня 2 (app/common/channel_state.py). matched_status —
+    -- маркер зміни стану (відбій/втрата фіксації), окремо від рівня. matched_location —
+    -- канонічна назва топоніма з газетиру. resolved_by — 'lexicon' | 'channel_state' |
+    -- 'channel_state_ambiguous' | 'llm' | NULL (нічого не зловлено на жодному рівні).
     regex_matched_level VARCHAR(10),
+    matched_status VARCHAR(20),
+    matched_location VARCHAR(100),
+    resolved_by VARCHAR(20),
     llm_response JSONB,
     dedup_hash VARCHAR(64),
     confirmation_count INT DEFAULT 1
