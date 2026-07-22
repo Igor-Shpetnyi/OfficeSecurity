@@ -15,7 +15,7 @@ from app.common.media import media_label
 # оновлюється, а не N окремих подій — інакше 4 редагування = 4 картки
 # з майже однаковим текстом. history — усі версії (для хронології
 # редагувань в UI), зібрані тим самим партиціюванням, що й version_count.
-_QUERY = (
+_QUERY_TEMPLATE = (
     "SELECT * FROM ("
     "  SELECT DISTINCT ON (e.source_channel, e.telegram_message_id) "
     "    e.id, e.raw_text, e.detected_at, e.telegram_message_id, "
@@ -34,8 +34,29 @@ _QUERY = (
     "  WINDOW w AS (PARTITION BY e.source_channel, e.telegram_message_id) "
     "  ORDER BY e.source_channel, e.telegram_message_id, e.detected_at DESC"
     ") t "
+    "{where} "
     "ORDER BY first_seen_at DESC "
     "LIMIT $1"
+)
+
+# Фільтр "нерозв'язано" (Етап 3 конвеєра, ADR-0012): ні рівня, ні
+# статус-маркера (resolved_by лишається NULL лише коли жоден з рівнів
+# конвеєра нічого не зловив — див. app/userbot/handlers.py::_store_event).
+_UNRESOLVED_WHERE = "WHERE t.resolved_by IS NULL AND t.regex_matched_level IS NULL"
+
+_QUERY = _QUERY_TEMPLATE.format(where="")
+_QUERY_UNRESOLVED = _QUERY_TEMPLATE.format(where=_UNRESOLVED_WHERE)
+
+# Той самий DISTINCT ON (остання версія кожного повідомлення вирішує його
+# стан розв'язаності) без обмеження LIMIT — для лічильника на вкладці.
+_COUNT_UNRESOLVED_QUERY = (
+    "SELECT COUNT(*) FROM ("
+    "  SELECT DISTINCT ON (e.source_channel, e.telegram_message_id) "
+    "    e.resolved_by, e.regex_matched_level "
+    "  FROM events_log e "
+    "  ORDER BY e.source_channel, e.telegram_message_id, e.detected_at DESC"
+    ") t "
+    "WHERE t.resolved_by IS NULL AND t.regex_matched_level IS NULL"
 )
 
 # Один "рівень" reply-ланцюжка: за парами (канал, message_id) віддає останню
@@ -165,8 +186,13 @@ async def _load_reply_chains(pool, events: list[dict]) -> None:
         event["reply_preview"] = chain[-1] if chain else None
 
 
-async def load_recent_events(pool, limit: int) -> list[dict]:
-    rows = await pool.fetch(_QUERY, limit)
+async def count_unresolved(pool) -> int:
+    return await pool.fetchval(_COUNT_UNRESOLVED_QUERY)
+
+
+async def load_recent_events(pool, limit: int, unresolved_only: bool = False) -> list[dict]:
+    query = _QUERY_UNRESOLVED if unresolved_only else _QUERY
+    rows = await pool.fetch(query, limit)
     events = [dict(row) for row in rows]
 
     await _load_reply_chains(pool, events)

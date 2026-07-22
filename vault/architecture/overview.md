@@ -96,6 +96,16 @@ Telegram-канали → Userbot (Telethon, event handler)
 - `app/userbot/handlers.py::_store_event` тепер приймає `redis_client` (прокинутий з `main.py`), викликає `channel_state.resolve()` замість голого `lexicon.analyze()`
 - UI: `/channels/state` (`app/admin/routers/channel_state.py` + `channel_state.html`/`_channel_state_content.html`) — жива таблиця активних слотів по каналах (live-refresh, той самий патерн, що `/events`), пряме читання Redis (`SCAN`) + join з `monitoring_channels`. Бейджі подій розрізняють походження — `🔗 успадковано` / `❓ неоднозначно` (`origin_map` в `_level_badge.html`, закладений заздалегідь ще на Рівні 1)
 
+## Етап 3 конвеєра виявлення (видимість нерозв'язаного)
+
+Не рівень конвеєра (не додає нового `resolved_by`), а вимірювальна контрольна точка перед рішенням про Рівень 3/LLM — реалізовано 2026-07-22, план з `TZ_konveyer_analizu_zagroz.md`.
+
+- `app/common/events_query.py::load_recent_events(pool, limit, unresolved_only=False)` — той самий `_QUERY_TEMPLATE`, підставляється `WHERE t.resolved_by IS NULL AND t.regex_matched_level IS NULL` для фільтра; `count_unresolved(pool)` — той самий DISTINCT ON (остання версія кожного повідомлення вирішує стан), без `LIMIT`, для лічильника на вкладці
+- `app/admin/routers/events.py` — query-параметр `?filter=unresolved` на `/events/recent` і `/events/recent/fragment`; лічильник (`count_unresolved`) рахується лише на повному завантаженні сторінки, не на кожному 5с-циклі live-refresh — щоб не тримати зайвий запит на гарячому шляху
+- UI: `.tab-switch`/`.tab-switch-item` (`theme.css`) — сегментований перемикач "Усі" / "Нерозв'язано (N)" над стрічкою подій, звичайні `<a href>` (повне перезавантаження сторінки, без нового JS — фільтр живе в URL)
+
+**Перший вимір на живих даних (2026-07-22):** 236 нерозв'язаних повідомлень всього в `events_log` на момент реалізації — переважно рекламні/побутові пости каналів без жодного тригер-слова (напр. вакансії, фото без підпису). Це число — вхід для майбутнього рішення про бюджет Етапу 4 (LLM).
+
 ## Повне видалення каналів (не лише "вимкнути")
 
 `monitoring_channels.pending_delete BOOLEAN` — `POST /channels/{id}/delete` лише позначає рядок (`is_active=false, pending_delete=true`), не видаляє одразу. Нова `sync_pending_deletes()` (`app/userbot/channels.py`) обробляє чергу: якщо канал ще `join_status='joined'` — спершу виходить з нього (`LeaveChannelRequest`, той самий принцип, що й `sync_pending_leaves`), потім видаляє рядок незалежно від результату виходу. `sync_pending_leaves()` виключає `pending_delete=TRUE` зі свого запиту, щоб два обробники не змагались за один рядок. `events_log` не чіпається — не має FK на `monitoring_channels` (`source_channel` — текстове поле з marked ID), історія подій лишається і після видалення картки каналу.

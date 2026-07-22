@@ -274,6 +274,36 @@ a {
   margin: 0 0 24px;
 }
 
+.tab-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: -8px 0 20px;
+}
+
+.tab-switch-item {
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.tab-switch-item:hover {
+  color: var(--text-primary);
+}
+
+.tab-switch-item.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+}
+
 /* Grid & cards */
 .grid {
   display: grid;

@@ -5,10 +5,15 @@
 <h1 class="page-title">Останні події</h1>
 <p class="page-subtitle">Сирий потік повідомлень з моніторинг-каналів (50 останніх)</p>
 
+<div class="tab-switch">
+  <a href="/events/recent" class="tab-switch-item {{ 'active' if not unresolved_filter else '' }}">Усі</a>
+  <a href="/events/recent?filter=unresolved" class="tab-switch-item {{ 'active' if unresolved_filter else '' }}">Нерозв'язано ({{ unresolved_count }})</a>
+</div>
+
 <div id="events-content">
   {% include "_events_content.html" %}
 </div>
 
 <script src="/static/js/live-refresh.js?v={{ static_v }}"></script>
-<script>startLiveRefresh('events-content', '/events/recent/fragment', 5000);</script>
+<script>startLiveRefresh('events-content', '/events/recent/fragment{{ "?filter=unresolved" if unresolved_filter else "" }}', 5000);</script>
 {% endblock %}
