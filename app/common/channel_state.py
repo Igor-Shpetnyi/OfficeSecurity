@@ -34,15 +34,17 @@ async def _active_slots(redis, channel_id: str) -> list[tuple[int, dict]]:
 
 async def _write_explicit(redis, channel_id: str, trace: DecisionTrace, source_message_id: int) -> None:
     """Рівень 1 щось явно зловив — записати/оновити слот. Пріоритет вибору
-    слота: (1) уже активний слот з тою самою локацією (та сама ціль, що
-    розвивається), (2) вільний слот, (3) якщо всі 3 зайняті — витісняється
-    найстаріший (новий явний сигнал важливіший за застарілий)."""
+    слота: (1) уже активний слот з бодай ОДНІЄЮ спільною локацією (та сама
+    ціль, що розвивається — повідомлення можуть називати кілька топонімів
+    одночасно, досить перетину), (2) вільний слот, (3) якщо всі 3 зайняті —
+    витісняється найстаріший (новий явний сигнал важливіший за застарілий)."""
     slots = await _active_slots(redis, channel_id)
 
     target_slot = None
     if trace.location:
+        new_locations = set(trace.location)
         for slot_idx, data in slots:
-            if data.get("location") == trace.location:
+            if new_locations & set(data.get("location") or ()):
                 target_slot = slot_idx
                 break
     if target_slot is None:
@@ -52,16 +54,16 @@ async def _write_explicit(redis, channel_id: str, trace: DecisionTrace, source_m
 
     await _set_slot(redis, channel_id, target_slot, {
         "level": trace.level,
-        "location": trace.location,
+        "location": list(trace.location),
         "source_message_id": source_message_id,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
 
 
-async def _clear_matching_slot(redis, channel_id: str, location: str | None) -> None:
+async def _clear_matching_slot(redis, channel_id: str, locations: tuple[str, ...]) -> None:
     """Повідомлення саме є status-сигналом (відбій/знищено/...) — закрити
     активний слот, якого це стосується, а не чекати TTL. Якщо в
-    повідомленні є локація — шукаємо слот саме з нею; якщо активний слот
+    повідомленні є локації — шукаємо слот з перетином; якщо активний слот
     рівно один (найчастіший випадок) — закриваємо його, бо "відбій" явно
     про нього; якщо кілька одночасних і локація не вказана — не вгадуємо
     який саме, лишаємо TTL/Етап 4 (LLM tie-break) розібратись."""
@@ -69,9 +71,10 @@ async def _clear_matching_slot(redis, channel_id: str, location: str | None) -> 
     if not slots:
         return
     target = None
-    if location:
+    if locations:
+        wanted = set(locations)
         for slot_idx, data in slots:
-            if data.get("location") == location:
+            if wanted & set(data.get("location") or ()):
                 target = slot_idx
                 break
     if target is None and len(slots) == 1:
@@ -90,8 +93,8 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
     записує/оновлює стан каналу і повертає trace як є. Якщо ні — дивиться
     на активні "цілі" каналу (Redis, TTL 20 хв): 0 активних → лишається
     нерозв'язаним (повертає lex_trace без змін, чесно); 1 активна —
-    успадковує її рівень, оновлює локацію, якщо в повідомленні з'явився
-    новий топонім; 2-3 одночасно → неоднозначно, поки що береться
+    успадковує її рівень, оновлює локації, якщо в повідомленні з'явились
+    нові топоніми; 2-3 одночасно → неоднозначно, поки що береться
     найновіша (точне зіставлення — LLM tie-break, Етап 4, ще не
     реалізовано)."""
     if lex_trace.status is not None:
@@ -108,10 +111,10 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
 
     if len(slots) == 1:
         slot_idx, data = slots[0]
-        location = lex_trace.location or data.get("location")
+        location = lex_trace.location if lex_trace.location else tuple(data.get("location") or ())
         await _set_slot(redis, channel_id, slot_idx, {
             "level": data["level"],
-            "location": location,
+            "location": list(location),
             "source_message_id": data["source_message_id"],
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
@@ -119,8 +122,8 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
             f'успадковано рівень "{data["level"]}" від активної цілі каналу '
             f'(джерело — повідомлення #{data["source_message_id"]})'
         )
-        location_evidence = lex_trace.location_evidence or (
-            f'успадковано разом із рівнем від повідомлення #{data["source_message_id"]}' if location else None
+        location_evidence = lex_trace.location_evidence if lex_trace.location_evidence else tuple(
+            f'успадковано разом із рівнем від повідомлення #{data["source_message_id"]}' for _ in location
         )
         return DecisionTrace(
             layer="channel_state",
@@ -135,11 +138,12 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
         f'(рівень "{data["level"]}", повідомлення #{data["source_message_id"]}); '
         f'точне зіставлення чекає LLM tie-break (Етап 4, ще не реалізовано)'
     )
+    location = lex_trace.location if lex_trace.location else tuple(data.get("location") or ())
     return DecisionTrace(
         layer="channel_state_ambiguous",
         level=data["level"], level_evidence=level_evidence,
         status=lex_trace.status, status_evidence=lex_trace.status_evidence,
-        location=lex_trace.location or data.get("location"), location_evidence=lex_trace.location_evidence,
+        location=location, location_evidence=lex_trace.location_evidence,
     )
 
 

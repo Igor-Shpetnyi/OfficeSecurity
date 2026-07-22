@@ -34,15 +34,21 @@ class DecisionTrace:
     читання коду чи словників. `layer` — який рівень конвеєра це вирішив
     (ADR-0012/ADR-0013); Рівень 2 (стан каналу) і Рівень 3 (LLM) додадуть
     власні значення `layer` і власні `*_evidence` формулювання пізніше, за
-    тим самим принципом — не власну окрему структуру."""
+    тим самим принципом — не власну окрему структуру.
+
+    `location`/`location_evidence` — КОРТЕЖІ, не одне значення: реальні
+    повідомлення (особливо "Повітряні Сили") часто називають маршрут через
+    кілька топонімів одним реченням ("курсом на Шостку, Ямпіль, Глухів") —
+    одна локація на подію губила б інформацію про весь маршрут (знайдено
+    на живих даних 2026-07-21)."""
 
     layer: str
     level: str | None
     level_evidence: str | None
     status: str | None
     status_evidence: str | None
-    location: str | None
-    location_evidence: str | None
+    location: tuple[str, ...]
+    location_evidence: tuple[str, ...]
 
     def as_dict(self) -> dict:
         return {
@@ -51,8 +57,8 @@ class DecisionTrace:
             "level_evidence": self.level_evidence,
             "status": self.status,
             "status_evidence": self.status_evidence,
-            "location": self.location,
-            "location_evidence": self.location_evidence,
+            "location": list(self.location),
+            "location_evidence": list(self.location_evidence),
         }
 
 
@@ -90,7 +96,7 @@ def _load_streets() -> tuple[Street, ...]:
 
 def get_streets() -> tuple[Street, ...]:
     """Публічний доступ до реєстру вулиць Сум для відображення в адмін-панелі.
-    Ще НЕ використовується в match_location() — див. заголовок streets_sumy.yaml."""
+    Ще НЕ використовується в match_locations() — див. заголовок streets_sumy.yaml."""
     return _load_streets()
 
 
@@ -131,52 +137,49 @@ def resolve_level(normalized_text: str) -> str | None:
     return match_level(normalized_text)
 
 
-def _match_location_explained(normalized_text: str) -> tuple[str | None, str | None]:
-    """Канонічна назва топоніма з газетиру + людське пояснення, ЯКА форма
-    спрацювала і як (пряме входження чи fuzzy — і з яким відсотком
-    подібності, якщо fuzzy). Спершу пряме входження словоформи (довша форма
-    перемагає, якщо збіглось кілька); якщо не знайдено — fuzzy-match
-    однослівних/двослівних вікон тексту проти словоформ (толерантно до
-    одруківок, поріг ~0.85)."""
+def _match_locations_explained(normalized_text: str) -> list[tuple[str, str]]:
+    """УСІ канонічні топоніми з газетиру, згадані в повідомленні (не лише
+    один найдовший збіг) + людське пояснення для кожного. Для кожного
+    топоніма — спершу пряме входження найдовшої словоформи; якщо не
+    знайдено — fuzzy-match (поріг ~0.85) проти однослівних/двослівних вікон
+    тексту (толерантно до одруківок)."""
     toponyms = _load_toponyms()
-
-    best_direct: tuple[int, str, str] | None = None
-    for topo in toponyms:
-        for form in topo.forms:
-            if form in normalized_text:
-                if best_direct is None or len(form) > best_direct[0]:
-                    best_direct = (len(form), topo.canonical, form)
-    if best_direct is not None:
-        _, canonical, form = best_direct
-        return canonical, f'пряме входження форми "{form}"'
-
     words = _WORD_RE.findall(normalized_text)
     windows = list(words)
     windows += [f"{a} {b}" for a, b in zip(words, words[1:])]
 
-    best_fuzzy: tuple[float, str, str, str] | None = None
+    results: list[tuple[str, str]] = []
     for topo in toponyms:
+        best_form: str | None = None
+        for form in topo.forms:
+            if form in normalized_text:
+                if best_form is None or len(form) > len(best_form):
+                    best_form = form
+        if best_form is not None:
+            results.append((topo.canonical, f'пряме входження форми "{best_form}"'))
+            continue
+
+        best_fuzzy: tuple[float, str, str] | None = None
         for form in topo.forms:
             for window in windows:
                 ratio = difflib.SequenceMatcher(None, form, window).ratio()
                 if ratio >= _FUZZY_THRESHOLD and (best_fuzzy is None or ratio > best_fuzzy[0]):
-                    best_fuzzy = (ratio, topo.canonical, form, window)
-    if best_fuzzy is not None:
-        ratio, canonical, form, window = best_fuzzy
-        return canonical, f'fuzzy-збіг {ratio:.2f} — "{window}" проти форми "{form}"'
-    return None, None
+                    best_fuzzy = (ratio, form, window)
+        if best_fuzzy is not None:
+            ratio, form, window = best_fuzzy
+            results.append((topo.canonical, f'fuzzy-збіг {ratio:.2f} — "{window}" проти форми "{form}"'))
+
+    return results
 
 
-def match_location(normalized_text: str) -> str | None:
-    """Канонічна назва топоніма з газетиру, або None. Тонка обгортка над
-    `_match_location_explained` для викликів, яким не потрібне пояснення."""
-    canonical, _ = _match_location_explained(normalized_text)
-    return canonical
+def match_locations(normalized_text: str) -> tuple[str, ...]:
+    """Канонічні назви ВСІХ топонімів з газетиру, знайдених у повідомленні."""
+    return tuple(canonical for canonical, _ in _match_locations_explained(normalized_text))
 
 
 def analyze(normalized_text: str) -> DecisionTrace:
     """Єдина точка входу Рівня 1 для конвеєра (ADR-0013): рахує рівень/
-    статус/локацію ОДНИМ проходом і одразу повертає, ЧЕРЕЗ ЩО кожне
+    статус/локації ОДНИМ проходом і одразу повертає, ЧЕРЕЗ ЩО кожне
     значення отримано — а не лише саме значення. handlers.py викликає це
     замість окремих match_*()/resolve_level(), щоб evidence і значення не
     могли розійтись (порахувались одним викликом з тих самих даних)."""
@@ -196,7 +199,7 @@ def analyze(normalized_text: str) -> DecisionTrace:
         level = None
         level_evidence = None
 
-    location, location_evidence = _match_location_explained(normalized_text)
+    locations = _match_locations_explained(normalized_text)
 
     return DecisionTrace(
         layer="lexicon",
@@ -204,6 +207,6 @@ def analyze(normalized_text: str) -> DecisionTrace:
         level_evidence=level_evidence,
         status=status,
         status_evidence=status_evidence,
-        location=location,
-        location_evidence=location_evidence,
+        location=tuple(c for c, _ in locations),
+        location_evidence=tuple(e for _, e in locations),
     )

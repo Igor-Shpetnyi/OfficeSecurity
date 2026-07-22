@@ -12,7 +12,7 @@
       <span class="badge {{ level_map[s.level][1] }}">{{ level_map[s.level][0] }} {{ s.level }}</span>
       {% endif %}
     </td>
-    <td>{{ s.location or "" }}</td>
+    <td>{{ s.location|join(", ") if s.location else "" }}</td>
     <td title="{{ s.updated_at_time }}">{{ s.updated_at_relative }}</td>
     <td class="text-secondary" data-ttl-until="{{ s.ttl_expires_at_ms }}">{{ s.ttl_minutes }}:{{ '%02d' % s.ttl_seconds }}</td>
     <td class="text-tertiary"><a href="/events/recent#event-{{ s.channel_id }}-{{ s.source_message_id }}">#{{ s.source_message_id }}</a></td>

@@ -33,7 +33,7 @@ async def _store_event(pool: asyncpg.Pool, redis_client, event, event_type: str)
     await pool.execute(
         "INSERT INTO events_log "
         "(raw_text, source_channel, telegram_message_id, reply_to_message_id, media_type, grouped_id, "
-        "event_type, detected_at, regex_matched_level, matched_status, matched_location, resolved_by, "
+        "event_type, detected_at, regex_matched_level, matched_status, matched_locations, resolved_by, "
         "decision_trace) "
         "VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9, $10, $11, $12)",
         text,
@@ -45,7 +45,7 @@ async def _store_event(pool: asyncpg.Pool, redis_client, event, event_type: str)
         event_type,
         trace.level,
         trace.status,
-        trace.location,
+        list(trace.location),
         resolved_by,
         json.dumps(trace.as_dict()),
     )

@@ -41,12 +41,15 @@ CREATE TABLE IF NOT EXISTS events_log (
     -- Рівень 1 конвеєра виявлення (ADR-0012, app/common/lexicon.py):
     -- regex_matched_level — найвищий зловлений рівень загрози (red/orange/yellow),
     -- або успадкований з Рівня 2 (app/common/channel_state.py). matched_status —
-    -- маркер зміни стану (відбій/втрата фіксації), окремо від рівня. matched_location —
-    -- канонічна назва топоніма з газетиру. resolved_by — 'lexicon' | 'channel_state' |
-    -- 'channel_state_ambiguous' | 'llm' | NULL (нічого не зловлено на жодному рівні).
+    -- маркер зміни стану (відбій/втрата фіксації), окремо від рівня. matched_locations —
+    -- МАСИВ канонічних назв топонімів з газетиру (не одна — реальні повідомлення,
+    -- особливо "Повітряні Сили", часто називають маршрут через кілька топонімів
+    -- одним реченням, знайдено на живих даних 2026-07-21). resolved_by —
+    -- 'lexicon' | 'channel_state' | 'channel_state_ambiguous' | 'llm' | NULL
+    -- (нічого не зловлено на жодному рівні).
     regex_matched_level VARCHAR(10),
     matched_status VARCHAR(20),
-    matched_location VARCHAR(100),
+    matched_locations TEXT[],
     resolved_by VARCHAR(20),
     -- ЧЕРЕЗ ЩО ухвалено рішення вище (ADR-0013), не лише саме рішення:
     -- {"layer": "lexicon", "level_evidence": "зловлено слово \"каб\" (red)", ...}.

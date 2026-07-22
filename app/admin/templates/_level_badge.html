@@ -10,14 +10,14 @@
   'channel_state_ambiguous': '❓ неоднозначно',
   'llm': '🤖 ШІ',
 } %}
-{% if e.regex_matched_level or e.matched_location or e.matched_status %}
+{% if e.regex_matched_level or e.matched_locations or e.matched_status %}
 <span class="level-badges">
   {% if e.regex_matched_level %}
   <span class="badge {{ level_map[e.regex_matched_level][1] }}">{{ level_map[e.regex_matched_level][0] }} {{ e.regex_matched_level }}</span>
   {% endif %}
-  {% if e.matched_location %}
-  <span class="badge badge-neutral">📍 {{ e.matched_location }}</span>
-  {% endif %}
+  {% for loc in e.matched_locations or [] %}
+  <span class="badge badge-neutral">📍 {{ loc }}</span>
+  {% endfor %}
   {% if e.matched_status %}
   <span class="badge badge-neutral">✅ {{ e.matched_status }}</span>
   {% endif %}
@@ -37,7 +37,7 @@
     <li><span class="event-trace-layer">{{ t.layer }}</span></li>
     {% if t.level_evidence %}<li>{{ t.level_evidence }}</li>{% endif %}
     {% if t.status_evidence %}<li>{{ t.status_evidence }}</li>{% endif %}
-    {% if t.location_evidence %}<li>{{ t.location_evidence }}</li>{% endif %}
+    {% for ev in t.location_evidence %}<li>{{ ev }}</li>{% endfor %}
   </ul>
 </details>
 {% endif %}
