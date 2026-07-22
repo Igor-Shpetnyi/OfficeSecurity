@@ -51,6 +51,10 @@ vault/
 - **Під час роботи:** якщо приймається архітектурне рішення — новий файл у `decisions/`; якщо змінюється компонент — правка `architecture/`.
 - **Наприкінці сесії:** один запис у `progress/<YYYY-MM-DD>.md` — що зроблено, що відкрито, що далі.
 
-## TODO: Graphify
+## Graphify
 
-У майбутньому слід підключити [Graphify](https://github.com/Graphify-Labs/graphify) — інструмент, що мапить проєкт (код, документи) у knowledge graph і дозволяє запити (`graphify query`/`path`/`explain`) замість grep по файлах, з локальною AST-обробкою коду (без зайвих LLM-викликів на цьому кроці). Це підвищить якість вайб-кодингу (точніша навігація по залежностях замість здогадок) і заощадить токени (запит до графу замість вичитування кількох файлів вручну). Підключати після появи реального коду (Етап 1-2 за ТЗ) — на порожньому репозиторії графувати нічого. Деталі й статус — [vault/backlog/open-questions.md](vault/backlog/open-questions.md).
+[Graphify](https://github.com/Graphify-Labs/graphify) підключено 2026-07-22 — мапить код у knowledge graph, дозволяє запити (`graphify query`/`path`/`explain`) замість grep по файлах, локальна AST-обробка (без LLM). Встановлено глобально (`pip install --user graphifyy`, не в `requirements.txt` проєкту — це інструмент асистента, не залежність застосунку); `graphify-out/` (сам граф) в `.gitignore` — build-артефакт, не джерело правди.
+
+**Використання:** `graphify path "A" "B"` — найкоротший шлях залежностей; `graphify explain "X"` — сусіди вузла X у графі. Якщо в проєкті є кілька файлів з однаковою назвою (напр. два `lexicon.py` — `app/common/` і `app/admin/routers/`), запит може бути неоднозначним — уточнювати повним шляхом.
+
+**Граф не оновлюється сам** — після суттєвих змін коду перебудувати: `graphify extract . --code-only` (детерміновано, без LLM/API-ключа), потім `graphify cluster-only . --no-label` (без LLM-найменування кластерів). Деталі рішення — [vault/backlog/open-questions.md](vault/backlog/open-questions.md).
