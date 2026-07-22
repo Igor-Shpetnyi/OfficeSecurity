@@ -103,6 +103,7 @@ Telegram-канали → Userbot (Telethon, event handler)
 - `app/common/events_query.py::load_recent_events(pool, limit, unresolved_only=False)` — той самий `_QUERY_TEMPLATE`, підставляється `WHERE t.resolved_by IS NULL AND t.regex_matched_level IS NULL` для фільтра; `count_unresolved(pool)` — той самий DISTINCT ON (остання версія кожного повідомлення вирішує стан), без `LIMIT`, для лічильника на вкладці
 - `app/admin/routers/events.py` — query-параметр `?filter=unresolved` на `/events/recent` і `/events/recent/fragment`; лічильник (`count_unresolved`) рахується лише на повному завантаженні сторінки, не на кожному 5с-циклі live-refresh — щоб не тримати зайвий запит на гарячому шляху
 - UI: `.tab-switch`/`.tab-switch-item` (`theme.css`) — сегментований перемикач "Усі" / "Нерозв'язано (N)" над стрічкою подій, звичайні `<a href>` (повне перезавантаження сторінки, без нового JS — фільтр живе в URL)
+- Дашборд (`_dashboard_content.html`) — компактне посилання "N нерозв'язано" поруч із заголовком картки "Останні події" (`.card-header-actions`), веде на той самий `/events/recent?filter=unresolved`; повноцінний `.tab-switch` тут не підійшов — картка показує лише 8 останніх подій, вкладки-перемикач для такого короткого зрізу зайві
 
 **Перший вимір на живих даних (2026-07-22):** 236 нерозв'язаних повідомлень всього в `events_log` на момент реалізації — переважно рекламні/побутові пости каналів без жодного тригер-слова (напр. вакансії, фото без підпису). Це число — вхід для майбутнього рішення про бюджет Етапу 4 (LLM).
 

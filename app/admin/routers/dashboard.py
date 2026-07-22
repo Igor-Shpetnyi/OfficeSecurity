@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
 from app.common.channels_query import load_channels
-from app.common.events_query import load_recent_events
+from app.common.events_query import count_unresolved, load_recent_events
 from app.common.formatting import relative_time, to_kyiv
 from app.config import STATIC_VERSION
 
@@ -22,6 +22,7 @@ async def _load_dashboard_data(pool: asyncpg.Pool) -> dict:
     last_message_at = await pool.fetchval("SELECT max(last_message_at) FROM monitoring_channels")
     channels = await load_channels(pool, limit=8)
     events = await load_recent_events(pool, limit=8)
+    unresolved_count = await count_unresolved(pool)
     return {
         "active_channels": active_channels,
         "events_24h": events_24h,
@@ -29,6 +30,7 @@ async def _load_dashboard_data(pool: asyncpg.Pool) -> dict:
         "last_message_relative": relative_time(last_message_at) if last_message_at else None,
         "channels": channels,
         "events": events,
+        "unresolved_count": unresolved_count,
     }
 
 

@@ -402,6 +402,21 @@ a {
   margin: 0;
 }
 
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-header-actions .text-tertiary {
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.card-header-actions .text-tertiary:hover {
+  color: var(--text-primary);
+}
+
 .stat-label {
   font-size: 12px;
   color: var(--text-secondary);

@@ -17,7 +17,10 @@
   <div class="card span-2">
     <div class="card-header">
       <h2 class="card-title">Останні події</h2>
-      <a href="/events/recent" class="btn btn-secondary btn-small">Усі →</a>
+      <div class="card-header-actions">
+        <a href="/events/recent?filter=unresolved" class="text-tertiary">{{ unresolved_count }} нерозв'язано</a>
+        <a href="/events/recent" class="btn btn-secondary btn-small">Усі →</a>
+      </div>
     </div>
     {% if events %}
     <div class="table-scroll">
