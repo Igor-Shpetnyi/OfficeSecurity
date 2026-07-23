@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timezone
 
+from app.common import llm
 from app.common.lexicon import DecisionTrace
 
 _SLOTS = 3
@@ -132,11 +133,15 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
             location=location, location_evidence=location_evidence,
         )
 
-    slot_idx, data = max(slots, key=lambda x: x[1]["updated_at"])
+    # Рівень 3 (ADR-0012), наразі стаб (app/common/llm.py) — та сама евристика
+    # "найновіший активний слот", лише винесена за шов, щоб мати реальну
+    # точку виклику під майбутню LLM tie-break, не тільки декларацію.
+    tie_break = llm.resolve_ambiguous_slot(slots, lex_trace)
+    slot_idx, data = next(s for s in slots if s[0] == tie_break.chosen_slot)
     level_evidence = (
         f'{len(slots)} активні цілі в каналі одночасно — обрано найновішу '
         f'(рівень "{data["level"]}", повідомлення #{data["source_message_id"]}); '
-        f'точне зіставлення чекає LLM tie-break (Етап 4, ще не реалізовано)'
+        f'точне зіставлення чекає LLM tie-break (стаб, app/common/llm.py)'
     )
     location = lex_trace.location if lex_trace.location else tuple(data.get("location") or ())
     return DecisionTrace(

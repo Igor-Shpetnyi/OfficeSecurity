@@ -36,6 +36,7 @@ status: active
 - [decisions/0012-three-layer-detection-not-regex-then-llm.md](decisions/0012-three-layer-detection-not-regex-then-llm.md) — див. також повну специфікацію [`../TZ_konveyer_analizu_zagroz.md`](../TZ_konveyer_analizu_zagroz.md)
 - [decisions/0013-decision-trace-every-layer.md](decisions/0013-decision-trace-every-layer.md)
 - [decisions/0014-periodic-lexicon-review.md](decisions/0014-periodic-lexicon-review.md) — метод/каденс перегляду словника, інструмент `scripts/review_unresolved_lexicon.py`
+- [decisions/0015-threat-state-dedup-cascade.md](decisions/0015-threat-state-dedup-cascade.md) — дедуплікація + каскад (ТЗ §9+§10), вкладка "Сповіщення", LLM на виході через стаб
 - [glossary/threat-levels.md](glossary/threat-levels.md)
 - [backlog/open-questions.md](backlog/open-questions.md)
 - [design/design.md](design/design.md) — обов'язково для будь-якого UI, див. правило в [CLAUDE.md](../CLAUDE.md)

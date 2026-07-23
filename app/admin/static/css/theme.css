@@ -856,6 +856,55 @@ table.data-table {
   color: var(--text-tertiary);
 }
 
+/* Стрічка "Сповіщення" (/notifications) — окрема від .event-list/.event-item,
+   бо форма даних інша (нема каналу-джерела/аватарки, є композиований текст) */
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.notification-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.notification-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-active);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.notification-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
 .event-trace-list {
   list-style: none;
   margin: 6px 0 0;

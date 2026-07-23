@@ -4,7 +4,7 @@ import logging
 import asyncpg
 from telethon import TelegramClient, events
 
-from app.common import channel_state, lexicon
+from app.common import channel_state, lexicon, threat_state
 from app.common.normalize import normalize
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,12 @@ async def _store_event(pool: asyncpg.Pool, redis_client, event, event_type: str)
     lex_trace = lexicon.analyze(normalized)
     trace = await channel_state.resolve(redis_client, str(event.chat_id), lex_trace, event.id)
     resolved_by = trace.layer if (trace.level or trace.status or trace.location) else None
-    await pool.execute(
+    event_log_id = await pool.fetchval(
         "INSERT INTO events_log "
         "(raw_text, source_channel, telegram_message_id, reply_to_message_id, media_type, grouped_id, "
         "event_type, detected_at, regex_matched_level, matched_status, matched_locations, resolved_by, "
         "decision_trace) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9, $10, $11, $12)",
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9, $10, $11, $12) RETURNING id",
         text,
         str(event.chat_id),
         event.id,
@@ -53,6 +53,7 @@ async def _store_event(pool: asyncpg.Pool, redis_client, event, event_type: str)
         "UPDATE monitoring_channels SET last_message_at = now() WHERE telegram_id = $1",
         event.chat_id,
     )
+    await threat_state.record_signal(pool, redis_client, trace, str(event.chat_id), event_log_id, normalized)
     logger.info("Stored %s message from %s: %.80s", event_type, event.chat_id, text)
 
 

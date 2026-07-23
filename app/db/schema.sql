@@ -57,9 +57,60 @@ CREATE TABLE IF NOT EXISTS events_log (
     -- принципом — Рівень 2/3 не винаходять окрему структуру.
     decision_trace JSONB,
     llm_response JSONB,
+    -- dedup_hash/confirmation_count: з оригінального ТЗ §14, ніколи не заповнювались
+    -- кодом (перевірено grep, 2026-07-23) — замінені таблицями threat_state/
+    -- threat_notifications нижче (своя дедуплікація/лічильник на рівні цілі,
+    -- не окремого повідомлення). Лишені як є, не видалені — не заважають.
     dedup_hash VARCHAR(64),
     confirmation_count INT DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_log_detected_at ON events_log (detected_at DESC);
 CREATE INDEX IF NOT EXISTS idx_events_log_source_message ON events_log (source_channel, telegram_message_id);
+
+-- Каскадна стейт-машина + дедуплікація (ТЗ §9+§10, план "Сповіщення" 2026-07-23).
+-- Кілька одночасних відкритих цілей за локацією (не один глобальний рядок,
+-- не один на канал) — той самий принцип, що вже двічі підтверджений у
+-- цьому проєкті: Рівень 2 (channel_state.py, до 3 слотів на канал) і
+-- DecisionTrace.location (кортеж, не одне значення). Матчинг нового сигналу
+-- до відкритого рядка — перетин множин локацій, як channel_state._write_explicit.
+CREATE TABLE IF NOT EXISTS threat_state (
+    id SERIAL PRIMARY KEY,
+    current_level VARCHAR(10) NOT NULL,
+    location TEXT[] NOT NULL DEFAULT '{}',
+    threat_type_evidence TEXT,
+    triggered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_signal_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    downgrade_scheduled_at TIMESTAMPTZ, -- NULL = каскад не заплановано
+    last_update_source VARCHAR(30) NOT NULL DEFAULT 'auto', -- 'auto' зараз; 'manual:<id>' зарезервовано, не реалізовано
+    is_locationally_lost BOOLEAN NOT NULL DEFAULT FALSE,
+    lost_since TIMESTAMPTZ,
+    confirmation_count INT NOT NULL DEFAULT 1,
+    contributing_channels TEXT[] NOT NULL DEFAULT '{}',
+    status_confirming_channels TEXT[] NOT NULL DEFAULT '{}', -- канали, що підтвердили "відбій" (ТЗ §9: 2+ гейтує каскад)
+    status VARCHAR(10) NOT NULL DEFAULT 'open', -- 'open' | 'closed'
+    origin_event_log_id INT REFERENCES events_log(id)
+);
+CREATE INDEX IF NOT EXISTS idx_threat_state_open ON threat_state (status) WHERE status = 'open';
+
+-- Append-only стрічка переходів (той самий принцип, що events_log для
+-- редагувань — threat_state сам живий/мутабельний, але стрічка "Сповіщення"
+-- має показувати ІСТОРІЮ переходів, не один рядок, що тихо перезаписується.
+CREATE TABLE IF NOT EXISTS threat_notifications (
+    id SERIAL PRIMARY KEY,
+    threat_state_id INT NOT NULL REFERENCES threat_state(id),
+    transition_type VARCHAR(20) NOT NULL, -- 'new' | 'escalated' | 'downgraded' | 'cleared'
+    level VARCHAR(10) NOT NULL,
+    location TEXT[] NOT NULL DEFAULT '{}',
+    composed_text TEXT NOT NULL,
+    -- 'template_stub' зараз (app/common/llm.py — детермінований шаблон,
+    -- жодного виклику LLM); 'llm' зарезервовано на майбутнє, коли Рівень 3
+    -- отримає бюджет/API-ключ (ADR-0012) — навмисно різні значення, щоб
+    -- стаб ніколи не сплутати з реальною відповіддю в БД/логах.
+    composed_by VARCHAR(20) NOT NULL DEFAULT 'template_stub',
+    confirmation_count INT NOT NULL DEFAULT 1,
+    contributing_channels TEXT[] NOT NULL DEFAULT '{}',
+    source_event_log_id INT REFERENCES events_log(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_threat_notifications_created_at ON threat_notifications (created_at DESC);

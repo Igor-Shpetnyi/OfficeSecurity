@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Сповіщення — Безпека Офісу{% endblock %}
+{% block breadcrumb %}Сповіщення{% endblock %}
+{% block content %}
+<h1 class="page-title">Сповіщення</h1>
+<p class="page-subtitle">
+  Дедуплікація + каскад (ТЗ §9+§10) — куди потрапляють вже проаналізовані, підтверджені
+  цілі, а не сирий потік з "Подій". Текст сповіщення поки складає шаблон-стаб
+  (`app/common/llm.py`), не LLM — і нікуди не надсилається, лише показується тут.
+</p>
+
+<div class="card">
+  <div id="notifications-content">
+    {% include "_notifications_content.html" %}
+  </div>
+</div>
+
+<script src="/static/js/live-refresh.js?v={{ static_v }}"></script>
+<script>startLiveRefresh('notifications-content', '/notifications/fragment', 5000);</script>
+{% endblock %}

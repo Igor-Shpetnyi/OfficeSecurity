@@ -1,0 +1,46 @@
+{% set level_map = {
+  'red':    ('🔴', 'badge-negative', 'ЧЕРВОНИЙ'),
+  'orange': ('🟠', 'badge-warning', 'ПОМАРАНЧЕВИЙ'),
+  'yellow': ('🟡', 'badge-caution', 'ЖОВТИЙ'),
+  'green':  ('🟢', 'badge-positive', 'ЗЕЛЕНИЙ'),
+} %}
+{% set transition_map = {
+  'new': '🆕 нова ціль',
+  'escalated': '⬆️ ескалація',
+  'downgraded': '⬇️ зниження',
+  'cleared': '✅ відбій',
+} %}
+{% if notifications %}
+<div class="notification-list">
+  {% for n in notifications %}
+  <div class="notification-item">
+    <div class="notification-header">
+      {% set lvl = level_map.get(n.level) %}
+      {% if lvl %}
+      <span class="badge {{ lvl[1] }}">{{ lvl[0] }} {{ lvl[2] }}</span>
+      {% endif %}
+      {% for loc in n.location or [] %}
+      <span class="badge badge-neutral">📍 {{ loc }}</span>
+      {% endfor %}
+      <span class="badge badge-neutral">{{ transition_map.get(n.transition_type, n.transition_type) }}</span>
+      <span class="notification-time" title="{{ n.created_at.strftime('%Y-%m-%d %H:%M:%S') }}">{{ n.created_at_relative }}</span>
+    </div>
+
+    <div class="notification-text">{{ n.composed_text }}</div>
+
+    <div class="notification-meta">
+      Текст сповіщення — ще не надсилається
+      <span class="badge badge-neutral">{{ '📝 шаблон' if n.composed_by == 'template_stub' else '🤖 ШІ' }}</span>
+      · Підтверджено {{ n.confirmation_count }}
+      {{ 'повідомленням' if n.confirmation_count == 1 else 'повідомленнями' }}
+      {% if n.contributing_channel_names %}з {{ n.contributing_channel_names|join(", ") }}{% endif %}
+      {% if n.source_event_channel and n.source_event_message_id %}
+      · <a href="/events/recent#event-{{ n.source_event_channel }}-{{ n.source_event_message_id }}">Джерело</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">Ще немає сповіщень — жодна ціль ще не пройшла дедуплікацію/каскад</div>
+{% endif %}
