@@ -39,10 +39,13 @@ _QUERY_TEMPLATE = (
     "LIMIT $1"
 )
 
-# Фільтр "нерозв'язано" (Етап 3 конвеєра, ADR-0012): ні рівня, ні
-# статус-маркера (resolved_by лишається NULL лише коли жоден з рівнів
-# конвеєра нічого не зловив — див. app/userbot/handlers.py::_store_event).
-_UNRESOLVED_WHERE = "WHERE t.resolved_by IS NULL AND t.regex_matched_level IS NULL"
+# Фільтр "нерозв'язано" (Етап 3 конвеєра, ADR-0012): нема рівня загрози
+# І нема статус-маркера. НЕ nа `resolved_by` — воно стає не-NULL, щойно
+# знайдено БУДЬ-ЩО, включно з голою локацією без рівня (напр. "Італмас в
+# бік Битиці" до фіксу словника 2026-07-22) — таке повідомлення технічно
+# "resolved_by='lexicon'", але найважливіше поле (рівень) все ще відсутнє,
+# тож для мети Етапу 3 (виміряти, скільки конвеєр НЕ розуміє) це нерозв'язано.
+_UNRESOLVED_WHERE = "WHERE t.regex_matched_level IS NULL AND t.matched_status IS NULL"
 
 _QUERY = _QUERY_TEMPLATE.format(where="")
 _QUERY_UNRESOLVED = _QUERY_TEMPLATE.format(where=_UNRESOLVED_WHERE)
@@ -52,11 +55,11 @@ _QUERY_UNRESOLVED = _QUERY_TEMPLATE.format(where=_UNRESOLVED_WHERE)
 _COUNT_UNRESOLVED_QUERY = (
     "SELECT COUNT(*) FROM ("
     "  SELECT DISTINCT ON (e.source_channel, e.telegram_message_id) "
-    "    e.resolved_by, e.regex_matched_level "
+    "    e.regex_matched_level, e.matched_status "
     "  FROM events_log e "
     "  ORDER BY e.source_channel, e.telegram_message_id, e.detected_at DESC"
     ") t "
-    "WHERE t.resolved_by IS NULL AND t.regex_matched_level IS NULL"
+    "WHERE t.regex_matched_level IS NULL AND t.matched_status IS NULL"
 )
 
 # Один "рівень" reply-ланцюжка: за парами (канал, message_id) віддає останню
