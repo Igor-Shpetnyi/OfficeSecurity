@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS events_log (
     regex_matched_level VARCHAR(10),
     matched_status VARCHAR(20),
     matched_locations TEXT[],
-    resolved_by VARCHAR(20),
+    resolved_by VARCHAR(30),
     -- ЧЕРЕЗ ЩО ухвалено рішення вище (ADR-0013), не лише саме рішення:
     -- {"layer": "lexicon", "level_evidence": "зловлено слово \"каб\" (red)", ...}.
     -- Рівень, що ухвалив рішення (`layer`), пише власний trace за тим самим
