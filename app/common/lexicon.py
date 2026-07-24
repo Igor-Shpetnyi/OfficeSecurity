@@ -17,6 +17,7 @@ _WORD_RE = re.compile(r"[а-щьюяєіїґ'\-]+", re.IGNORECASE)
 class Toponym:
     canonical: str
     forms: tuple[str, ...]
+    tier: str = "oblast"  # city/oblast/source — див. заголовок toponyms.yaml
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,10 @@ class DecisionTrace:
     status_evidence: str | None
     location: tuple[str, ...]
     location_evidence: tuple[str, ...]
+    # Фраза напрямку ("курсом на Суми", "у бік Сумщини"), якщо знайдена —
+    # None, якщо в повідомленні жодної немає. Додано 2026-07-24 для тексту
+    # сповіщень (ціль+напрямок) і гео-фільтра релевантності (is_geo_relevant).
+    direction_evidence: str | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -59,6 +64,7 @@ class DecisionTrace:
             "status_evidence": self.status_evidence,
             "location": list(self.location),
             "location_evidence": list(self.location_evidence),
+            "direction_evidence": self.direction_evidence,
         }
 
 
@@ -73,7 +79,15 @@ def _load_triggers() -> dict[str, tuple[str, ...]]:
 def _load_toponyms() -> tuple[Toponym, ...]:
     with open(_DATA_DIR / "toponyms.yaml", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
-    return tuple(Toponym(canonical=e["canonical"], forms=tuple(e["forms"])) for e in raw)
+    return tuple(
+        Toponym(canonical=e["canonical"], forms=tuple(e["forms"]), tier=e.get("tier", "oblast"))
+        for e in raw
+    )
+
+
+@lru_cache(maxsize=1)
+def _toponym_tiers() -> dict[str, str]:
+    return {t.canonical: t.tier for t in _load_toponyms()}
 
 
 def get_triggers() -> dict[str, tuple[str, ...]]:
@@ -123,6 +137,38 @@ def match_status(normalized_text: str) -> str | None:
         if stem in normalized_text:
             return stem
     return None
+
+
+def match_direction(normalized_text: str) -> str | None:
+    """Фраза напрямку ("курсом на Суми", "у бік Сумщини") — перша знайдена,
+    разом із ~60 символами тексту після стему як людський evidence-рядок
+    (не лише прапорець — фраза йде напряму в текст сповіщення). None, якщо
+    жодної не знайдено. Той самий принцип, що match_status()/_find_level_word,
+    substring-пошук у нормалізованому тексті, не regex — консистентно з
+    рештою Рівня 1 (детерміновано, версійовано в YAML, без regex-складності)."""
+    for stem in _load_triggers().get("direction", ()):
+        idx = normalized_text.find(stem)
+        if idx != -1:
+            return normalized_text[idx : idx + len(stem) + 60].strip()
+    return None
+
+
+def is_geo_relevant(locations: tuple[str, ...], direction_evidence: str | None) -> bool:
+    """Гео-фільтр релевантності для Сум (запит користувача 2026-07-24):
+    без локацій — релевантно (рівень без топоніма й досі про Сумщину, не
+    регресує наявну поведінку). Є бодай одна локація tier city/oblast —
+    релевантно, НАВІТЬ без слова "Суми" в тексті (село Сумщини релевантне
+    саме по собі — уточнення користувача). Лише tier=source (Крим/Бєлгород/
+    Брянськ/Курськ/Харківщина/Чернігівщина — джерела, не цілі) — релевантно,
+    ТІЛЬКИ якщо в тексті ще й є фраза напрямку (інакше "далеко", можна не
+    повідомляти)."""
+    if not locations:
+        return True
+    tiers = _toponym_tiers()
+    matched_tiers = {tiers.get(loc, "oblast") for loc in locations}
+    if matched_tiers & {"city", "oblast"}:
+        return True
+    return direction_evidence is not None
 
 
 def resolve_level(normalized_text: str) -> str | None:
@@ -200,6 +246,7 @@ def analyze(normalized_text: str) -> DecisionTrace:
         level_evidence = None
 
     locations = _match_locations_explained(normalized_text)
+    direction_evidence = match_direction(normalized_text)
 
     return DecisionTrace(
         layer="lexicon",
@@ -209,4 +256,5 @@ def analyze(normalized_text: str) -> DecisionTrace:
         status_evidence=status_evidence,
         location=tuple(c for c, _ in locations),
         location_evidence=tuple(e for _, e in locations),
+        direction_evidence=direction_evidence,
     )

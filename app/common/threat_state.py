@@ -20,7 +20,7 @@
 import hashlib
 from datetime import datetime, timedelta, timezone
 
-from app.common import llm
+from app.common import lexicon, llm
 
 _LEVEL_RANK = {"yellow": 1, "orange": 2, "red": 3}
 _CASCADE_NEXT = {"red": "orange", "orange": "yellow", "yellow": "green"}
@@ -34,6 +34,17 @@ _DEDUP_TTL_SECONDS = 30
 # Та сама константа, що TTL слота Рівня 2 (channel_state._TTL_SECONDS) —
 # не нова довільна цифра, той самий сенс "ціль втрачена без підтвердження".
 _LOCATIONALLY_LOST_SECONDS = 1200
+
+
+def _combine_evidence(level_evidence: str | None, direction_evidence: str | None) -> str | None:
+    """Ціль (level_evidence) + напрямок (direction_evidence) одним рядком —
+    той самий шлях, що вже threat_type_evidence, до llm.py й у стаб-текст
+    (_stub_alert_text), без нових полів/колонок (запит користувача 2026-07-24)."""
+    if not direction_evidence:
+        return level_evidence
+    if not level_evidence:
+        return f"напрямок: {direction_evidence}"
+    return f"{level_evidence}; напрямок: {direction_evidence}"
 
 
 def _dedup_key(normalized_text: str, level: str, locations: tuple[str, ...]) -> str:
@@ -104,6 +115,14 @@ async def record_signal(
         await _record_status(pool, trace, source_channel, event_log_id)
         return
     if trace.level is not None:
+        # Гео-фільтр релевантності для Сум (запит користувача 2026-07-24):
+        # локації лише tier=source (Крим/Бєлгород/Брянськ/Курськ/Харківщина/
+        # Чернігівщина — джерела загрози, не цілі) без фрази напрямку в
+        # тексті — далеко, можна не повідомляти. Статус-сигнали (_record_status)
+        # гейта не потребують — торкаються лише вже відкритих рядків, які
+        # пройшли цей гейт при створенні.
+        if not lexicon.is_geo_relevant(trace.location, trace.direction_evidence):
+            return
         await _record_level(pool, redis, trace, source_channel, event_log_id, normalized_text)
 
 
@@ -145,6 +164,8 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
     # falsy, якщо ключ уже існував (справжній дубль за останні 30с).
     is_dup = not await redis.set(dedup_key, "1", ex=_DEDUP_TTL_SECONDS, nx=True)
 
+    evidence = _combine_evidence(trace.level_evidence, trace.direction_evidence)
+
     async with pool.acquire() as conn, conn.transaction():
         rows = await conn.fetch("SELECT * FROM threat_state WHERE status = 'open' FOR UPDATE")
         row = _find_open_row_for_level(rows, trace.location, source_channel)
@@ -155,13 +176,13 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
                 "(current_level, location, threat_type_evidence, contributing_channels, "
                 "origin_event_log_id, contributing_event_ids) "
                 "VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-                trace.level, list(trace.location), trace.level_evidence, [source_channel], event_log_id,
+                trace.level, list(trace.location), evidence, [source_channel], event_log_id,
                 [event_log_id],
             )
             if not is_dup:
                 await _write_notification(
                     conn, new_row, "new", trace.level, trace.location, 1, [source_channel], event_log_id,
-                    trace.level_evidence, [event_log_id],
+                    evidence, [event_log_id],
                 )
             return
 
@@ -181,12 +202,12 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
                 "last_signal_at = now(), downgrade_scheduled_at = NULL, is_locationally_lost = FALSE, "
                 "lost_since = NULL, status_confirming_channels = '{}', contributing_channels = $4, "
                 "confirmation_count = $5, contributing_event_ids = $6 WHERE id = $7",
-                trace.level, list(location), trace.level_evidence, channels, new_count, event_ids, row["id"],
+                trace.level, list(location), evidence, channels, new_count, event_ids, row["id"],
             )
             if not is_dup:
                 await _write_notification(
                     conn, row, "escalated", trace.level, location, new_count, channels, event_log_id,
-                    trace.level_evidence, event_ids,
+                    evidence, event_ids,
                 )
         else:
             # Мовчазне підтвердження — рівень не змінюється, жодного запису

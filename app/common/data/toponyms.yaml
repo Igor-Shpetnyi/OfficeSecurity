@@ -8,110 +8,171 @@
 # Якщо форма не знайдена буквально — app/common/lexicon.py падає на
 # fuzzy-match (difflib) проти canonical.
 #
+# tier — гео-релевантність для фільтра "виключно для мешканців Сум"
+# (lexicon.is_geo_relevant, доданий 2026-07-24, запит користувача):
+#   city   — саме м. Суми / орієнтир у місті
+#   oblast — населені пункти Сумщини — релевантні САМІ ПО СОБІ, без потреби
+#            згадувати "Суми"/напрямок явно (уточнення користувача 2026-07-24:
+#            повідомлення з каналів не завжди називають місто)
+#   source — регіон/область, звідки летить загроза, а не ціль сама по собі
+#            (уже позначені окремим коментарем нижче) — рахуються релевантними
+#            тільки якщо в тексті ще й є фраза напрямку (lexicon.match_direction)
+#
 # Свідомо НЕ вся Україна: інші області (Донеччина, Запоріжжя, Одещина тощо)
 # не потрапляють у газетир навіть попри те, що "Повітряні Сили ЗС України"
 # репортують по них теж — вони не впливають на каскад загроз офісу в Сумах.
 # Підтверджено користувачем 2026-07-21, не re-litigate без нового приводу.
 
 - canonical: "Суми"
+  tier: city
   forms: ["суми", "сум", "суму", "сумах"]
 - canonical: "Охтирка"
+  tier: oblast
   forms: ["охтирка", "охтирку", "охтирки", "охтирці"]
 - canonical: "Глухів"
+  tier: oblast
   forms: ["глухів", "глухова", "глухові"]
 - canonical: "Тростянець"
+  tier: oblast
   forms: ["тростянець", "тростянця", "тростянці"]
 - canonical: "Шостка"
+  tier: oblast
   forms: ["шостка", "шостку", "шостки", "шостці"]
 - canonical: "Ямпіль"
+  tier: oblast
   forms: ["ямпіль", "ямполя", "ямпільську", "ямпільської"]
 - canonical: "Лебедин"
+  tier: oblast
   forms: ["лебедин", "лебедина", "лебедині"]
 - canonical: "Білопілля"
+  tier: oblast
   forms: ["білопілля", "білопільській", "білопільська", "білопільської"]
 - canonical: "Краснопілля"
+  tier: oblast
   forms: ["краснопілля", "краснопіллі"]
 - canonical: "Юнаківка"
+  tier: oblast
   forms: ["юнаківка", "юнаківську", "юнаківської"]
 - canonical: "Хотінь"
+  tier: oblast
   forms: ["хотінь", "хотінська", "хотінську"]
 - canonical: "Степанівка"
+  tier: oblast
   forms: ["степанівка", "степанівку", "степанівки"]
 - canonical: "Стецьківка"
+  tier: oblast
   forms: ["стецьківка", "стецьківку"]
 - canonical: "Баранівка"
+  tier: oblast
   forms: ["баранівка", "баранівку"]
 - canonical: "Вакалівщина"
+  tier: oblast
   forms: ["вакалівщина", "вакплівщина"]  # друга форма — реальна одруківка з даних
 - canonical: "Пушкарівка"
+  tier: oblast
   forms: ["пушкарівка", "пушкарівку"]
 - canonical: "Токарі"
+  tier: oblast
   forms: ["токарі"]
 - canonical: "Битиця"
+  tier: oblast
   forms: ["битиця", "битиці"]
 - canonical: "Рибці"
+  tier: oblast
   forms: ["рибці"]
 - canonical: "Піщане"
+  tier: oblast
   forms: ["піщане"]
 - canonical: "Житейське"
+  tier: oblast
   forms: ["житейське"]
 - canonical: "Тополя"
+  tier: oblast
   forms: ["тополя", "тополю"]
 - canonical: "Річки"
+  tier: oblast
   forms: ["річки"]
 - canonical: "Постольне"
+  tier: oblast
   forms: ["постольне"]
 - canonical: "Могриця"
+  tier: oblast
   forms: ["могриця"]
 - canonical: "Садки"
+  tier: oblast
   forms: ["садки"]
 - canonical: "Басівка"
+  tier: oblast
   forms: ["басівка", "баси"]
 - canonical: "Улянівка"
+  tier: oblast
   forms: ["улянівка", "улянівку"]
 - canonical: "Миколаївка"
+  tier: oblast
   forms: ["миколаївка"]
 - canonical: "Кириківка"
+  tier: oblast
   forms: ["кириківка", "кириківку"]
 - canonical: "Боромля"
+  tier: oblast
   forms: ["боромля"]
 - canonical: "Липова Долина"
+  tier: oblast
   forms: ["липова долина"]
 - canonical: "Недригайлів"
+  tier: oblast
   forms: ["недригайлів"]
 - canonical: "Радьківка"
+  tier: oblast
   forms: ["радьківка", "радьківку", "радьківки"]
 - canonical: "Кровне"
+  tier: oblast
   forms: ["кровне"]
 - canonical: "Велика Писарівка"
+  tier: oblast
   forms: ["велика писарівка", "писарівка", "писарівку", "великописарівської"]
 - canonical: "Добрянське"
+  tier: oblast
   forms: ["добрянське"]
 - canonical: "Графське"
+  tier: oblast
   forms: ["графське"]
 - canonical: "Склярівка"
+  tier: oblast
   forms: ["склярівка"]
 - canonical: "Старе Село"
+  tier: oblast
   forms: ["старе село"]
 - canonical: "Новоселиця"
+  tier: oblast
   forms: ["новоселиця"]
 - canonical: "Спаське"
+  tier: oblast
   forms: ["спаське"]
 - canonical: "Миропілля"
+  tier: oblast
   forms: ["миропілля"]
 - canonical: "Зелений Гай"
+  tier: oblast
   forms: ["зелений гай"]
 - canonical: "Харківщина"
+  tier: source
   forms: ["харківщини", "харківщину", "харківщина", "харківщині"]
 - canonical: "Чернігівщина"
+  tier: source
   forms: ["чернігівщини", "чернігівщина", "чернігівщині", "чернігівщину"]
 - canonical: "Епіцентр"        # ТЦ у Сумах, орієнтир, не населений пункт
+  tier: city
   forms: ["епіцентр", "епіцентру"]
 - canonical: "Крим"             # джерело загрози, не ціль
+  tier: source
   forms: ["крим", "криму"]
 - canonical: "Бєлгород"
+  tier: source
   forms: ["бєлгород", "бєлгорода", "бєлгородської"]
 - canonical: "Брянськ"
+  tier: source
   forms: ["брянськ", "брянська"]
 - canonical: "Курськ"
+  tier: source
   forms: ["курськ", "курська", "курської"]

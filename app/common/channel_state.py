@@ -139,6 +139,7 @@ async def resolve(
             level=data["level"], level_evidence=level_evidence,
             status=lex_trace.status, status_evidence=lex_trace.status_evidence,
             location=location, location_evidence=location_evidence,
+            direction_evidence=lex_trace.direction_evidence,
         )
 
     # Рівень 3 (ADR-0012/0015) — реальний LLM tie-break з фолбеком на
@@ -167,6 +168,7 @@ async def resolve(
         level=data["level"], level_evidence=level_evidence,
         status=lex_trace.status, status_evidence=lex_trace.status_evidence,
         location=location, location_evidence=lex_trace.location_evidence,
+        direction_evidence=lex_trace.direction_evidence,
     )
 
 
