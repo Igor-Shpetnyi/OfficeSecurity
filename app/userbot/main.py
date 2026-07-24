@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import redis.exceptions
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
@@ -29,16 +30,28 @@ async def refresh_active_ids(pool, active_ids: set[int]) -> None:
 
 
 async def channel_updates_listener(redis_client, pool, client, active_ids: set[int]) -> None:
-    pubsub = redis_client.pubsub()
-    await pubsub.subscribe(CHANNELS_UPDATE_TOPIC)
-    async for message in pubsub.listen():
-        if message["type"] != "message":
-            continue
-        logger.info("Channel list update signal received")
-        await sync_pending_joins(client, pool)
-        await sync_pending_leaves(client, pool)
-        await sync_pending_deletes(client, pool)
-        await refresh_active_ids(pool, active_ids)
+    """Транзитний обрив з'єднання з Redis (знайдено наживо 2026-07-24: Windows
+    'The semaphore timeout period has expired' — минущий мережевий збій, не
+    справжня недоступність Redis) інакше вивалюється з async for і забирає
+    цілий asyncio.gather() у main() разом з ним — юзербот повністю зупиняв
+    моніторинг, поки хтось вручну не перезапустить. periodic_join_sync()
+    (нижче) — та сама страхувальна сітка "якщо pub/sub втрачено", тож пропуск
+    одного сигналу під час перепідключення тут не критичний."""
+    while True:
+        try:
+            pubsub = redis_client.pubsub()
+            await pubsub.subscribe(CHANNELS_UPDATE_TOPIC)
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+                logger.info("Channel list update signal received")
+                await sync_pending_joins(client, pool)
+                await sync_pending_leaves(client, pool)
+                await sync_pending_deletes(client, pool)
+                await refresh_active_ids(pool, active_ids)
+        except redis.exceptions.ConnectionError:
+            logger.exception("Redis pub/sub connection lost, reconnecting in 5s")
+            await asyncio.sleep(5)
 
 
 async def periodic_join_sync(client, pool, active_ids: set[int], interval: int = 60) -> None:
