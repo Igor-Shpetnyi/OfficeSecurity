@@ -75,7 +75,7 @@ async def _write_notification(
     # state_row — при ескалації state_row усе ще старий знімок ДО UPDATE
     # (перевірено власним ізольованим тестом: без цього текст сповіщення
     # показував evidence СТАРОГО рівня, не того слова, що спричинило ескалацію).
-    alert = llm.compose_alert_text(
+    alert = await llm.compose_alert_text(
         level=level,
         location=tuple(location),
         threat_type_evidence=threat_type_evidence,

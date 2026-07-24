@@ -33,7 +33,9 @@ async def _active_slots(redis, channel_id: str) -> list[tuple[int, dict]]:
     return result
 
 
-async def _write_explicit(redis, channel_id: str, trace: DecisionTrace, source_message_id: int) -> None:
+async def _write_explicit(
+    redis, channel_id: str, trace: DecisionTrace, source_message_id: int, text: str
+) -> None:
     """Рівень 1 щось явно зловив — записати/оновити слот. Пріоритет вибору
     слота: (1) уже активний слот з бодай ОДНІЄЮ спільною локацією (та сама
     ціль, що розвивається — повідомлення можуть називати кілька топонімів
@@ -58,6 +60,10 @@ async def _write_explicit(redis, channel_id: str, trace: DecisionTrace, source_m
         "location": list(trace.location),
         "source_message_id": source_message_id,
         "updated_at": datetime.now(timezone.utc).isoformat(),
+        # Перші ~150 символів СИРОГО (не normalized) тексту — для майбутнього
+        # LLM tie-break (app/common/llm.py::resolve_ambiguous_slot), якщо цей
+        # слот стане одним із кількох одночасних. Природна мова, не lowercase.
+        "text_snippet": text[:150],
     })
 
 
@@ -84,7 +90,9 @@ async def _clear_matching_slot(redis, channel_id: str, locations: tuple[str, ...
         await redis.delete(_key(channel_id, target))
 
 
-async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_message_id: int) -> DecisionTrace:
+async def resolve(
+    redis, channel_id: str, lex_trace: DecisionTrace, source_message_id: int, text: str
+) -> DecisionTrace:
     """Рівень 2 конвеєра виявлення (ADR-0012). Якщо повідомлення саме є
     status-сигналом (відбій/знищено/...) — закриває відповідний активний
     слот і повертає trace як є, НЕ успадковуючи рівень (інакше "Відбій..."
@@ -95,15 +103,14 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
     на активні "цілі" каналу (Redis, TTL 20 хв): 0 активних → лишається
     нерозв'язаним (повертає lex_trace без змін, чесно); 1 активна —
     успадковує її рівень, оновлює локації, якщо в повідомленні з'явились
-    нові топоніми; 2-3 одночасно → неоднозначно, поки що береться
-    найновіша (точне зіставлення — LLM tie-break, Етап 4, ще не
-    реалізовано)."""
+    нові топоніми; 2-3 одночасно → tie-break через Рівень 3 (LLM, реальний
+    виклик з фолбеком на евристику "найновіший" — app/common/llm.py)."""
     if lex_trace.status is not None:
         await _clear_matching_slot(redis, channel_id, lex_trace.location)
         return lex_trace
 
     if lex_trace.level is not None:
-        await _write_explicit(redis, channel_id, lex_trace, source_message_id)
+        await _write_explicit(redis, channel_id, lex_trace, source_message_id, text)
         return lex_trace
 
     slots = await _active_slots(redis, channel_id)
@@ -118,6 +125,7 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
             "location": list(location),
             "source_message_id": data["source_message_id"],
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "text_snippet": text[:150],
         })
         level_evidence = (
             f'успадковано рівень "{data["level"]}" від активної цілі каналу '
@@ -133,19 +141,29 @@ async def resolve(redis, channel_id: str, lex_trace: DecisionTrace, source_messa
             location=location, location_evidence=location_evidence,
         )
 
-    # Рівень 3 (ADR-0012), наразі стаб (app/common/llm.py) — та сама евристика
-    # "найновіший активний слот", лише винесена за шов, щоб мати реальну
-    # точку виклику під майбутню LLM tie-break, не тільки декларацію.
-    tie_break = llm.resolve_ambiguous_slot(slots, lex_trace)
+    # Рівень 3 (ADR-0012/0015) — реальний LLM tie-break з фолбеком на
+    # евристику "найновіший активний слот", якщо ключ не налаштований,
+    # виклик провалився, або впевненість низька (app/common/llm.py).
+    tie_break = await llm.resolve_ambiguous_slot(slots, lex_trace, text)
+
+    if tie_break.is_new_target:
+        # LLM вирішив, що це геть НЕ пов'язана тема — той самий шлях, що
+        # "0 активних слотів" вище: чесно лишається нерозв'язаним, не
+        # вгадуємо. Саме той клас бага (аеростати/непов'язана соціальна
+        # стаття помилково успадковували рівень), що ADR-0012 документував
+        # як відоме обмеження стаб-евристики — тепер реально закривається.
+        return lex_trace
+
     slot_idx, data = next(s for s in slots if s[0] == tie_break.chosen_slot)
+    layer = "llm" if not tie_break.is_stub else "channel_state_ambiguous"
     level_evidence = (
-        f'{len(slots)} активні цілі в каналі одночасно — обрано найновішу '
-        f'(рівень "{data["level"]}", повідомлення #{data["source_message_id"]}); '
-        f'точне зіставлення чекає LLM tie-break (стаб, app/common/llm.py)'
+        f'{len(slots)} активні цілі в каналі одночасно — обрано '
+        f'{"через ШІ-зіставлення" if not tie_break.is_stub else "найновішу (стаб)"} '
+        f'(рівень "{data["level"]}", повідомлення #{data["source_message_id"]})'
     )
     location = lex_trace.location if lex_trace.location else tuple(data.get("location") or ())
     return DecisionTrace(
-        layer="channel_state_ambiguous",
+        layer=layer,
         level=data["level"], level_evidence=level_evidence,
         status=lex_trace.status, status_evidence=lex_trace.status_evidence,
         location=location, location_evidence=lex_trace.location_evidence,

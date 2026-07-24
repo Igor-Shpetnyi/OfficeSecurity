@@ -28,7 +28,7 @@ async def _store_event(pool: asyncpg.Pool, redis_client, event, event_type: str)
     text = event.raw_text or ""
     normalized = normalize(text)
     lex_trace = lexicon.analyze(normalized)
-    trace = await channel_state.resolve(redis_client, str(event.chat_id), lex_trace, event.id)
+    trace = await channel_state.resolve(redis_client, str(event.chat_id), lex_trace, event.id, text)
     resolved_by = trace.layer if (trace.level or trace.status or trace.location) else None
     event_log_id = await pool.fetchval(
         "INSERT INTO events_log "
