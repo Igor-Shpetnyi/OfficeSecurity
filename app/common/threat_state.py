@@ -34,6 +34,12 @@ _DEDUP_TTL_SECONDS = 30
 # Та сама константа, що TTL слота Рівня 2 (channel_state._TTL_SECONDS) —
 # не нова довільна цифра, той самий сенс "ціль втрачена без підтвердження".
 _LOCATIONALLY_LOST_SECONDS = 1200
+# Дальність від Сум — статичний факт ПРО НАЗВУ МІСЦЯ, не про конкретне
+# повідомлення, тож кешується без TTL (географія не змінюється). Запит
+# користувача 2026-07-24: газетир завжди відставатиме від живих даних
+# ("Яцине"/"Конотоп" відсутні), тож для топонімів, яких Рівень 1 взагалі
+# не впізнав, дальність питає LLM (app/common/llm.py::judge_location_relevance).
+_GEO_CACHE_PREFIX = "geo_relevance:"
 
 
 def _combine_evidence(level_evidence: str | None, direction_evidence: str | None) -> str | None:
@@ -45,6 +51,30 @@ def _combine_evidence(level_evidence: str | None, direction_evidence: str | None
     if not level_evidence:
         return f"напрямок: {direction_evidence}"
     return f"{level_evidence}; напрямок: {direction_evidence}"
+
+
+async def _check_learned_relevance(redis, normalized_text: str) -> bool | None:
+    """Ключ кешу дізнаємось лише ПІСЛЯ виклику LLM (він сам визначає назву
+    місця) — тож замість вгадувати ключ заздалегідь, скануємо вже вивчені
+    назви (очікувано десятки записів, SCAN дешевий — цей шлях і так вузький,
+    лише повідомлення з рівнем і без жодної газетир-локації) і перевіряємо
+    підрядком. None — жодної відомої назви не знайдено, треба питати LLM."""
+    async for key in redis.scan_iter(match=f"{_GEO_CACHE_PREFIX}*"):
+        place = key[len(_GEO_CACHE_PREFIX):]
+        if place in normalized_text:
+            value = await redis.get(key)
+            return value == "1"
+    return None
+
+
+async def _judge_unknown_location(redis, normalized_text: str) -> bool:
+    cached = await _check_learned_relevance(redis, normalized_text)
+    if cached is not None:
+        return cached
+    judgment = await llm.judge_location_relevance(normalized_text)
+    if judgment.place_name:
+        await redis.set(f"{_GEO_CACHE_PREFIX}{judgment.place_name.lower()}", "1" if judgment.is_relevant else "0")
+    return judgment.is_relevant
 
 
 def _dedup_key(normalized_text: str, level: str, locations: tuple[str, ...]) -> str:
@@ -122,6 +152,11 @@ async def record_signal(
         # гейта не потребують — торкаються лише вже відкритих рядків, які
         # пройшли цей гейт при створенні.
         if not lexicon.is_geo_relevant(trace.location, trace.direction_evidence):
+            return
+        # Газетир не зловив ЖОДНОЇ локації (не плутати з "лише tier=source"
+        # вище — те вже покрито статичним гейтом) — питаємо LLM, чи згаданий
+        # тут топонім взагалі біля Сум, з кешем по назві (Уточнення 2026-07-24).
+        if not trace.location and not await _judge_unknown_location(redis, normalized_text):
             return
         await _record_level(pool, redis, trace, source_channel, event_log_id, normalized_text)
 

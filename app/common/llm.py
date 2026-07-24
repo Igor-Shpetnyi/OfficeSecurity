@@ -287,3 +287,76 @@ async def resolve_ambiguous_slot(
         return _stub_tie_break(candidate_slots)
     _record_success()
     return TieBreakResult(chosen_slot=idx, is_new_target=False, is_stub=False)
+
+
+@dataclass(frozen=True)
+class LocationRelevance:
+    """Четверта вузька роль Рівня 3 (ADR-0012 §4.3 передбачав "fallback-
+    класифікацію незловленого" — цей клас) — дальність топоніма, якого нема
+    в газетирі (`app/common/data/toponyms.yaml`), від Сум. Викликається лише
+    коли Рівень 1 не зловив ЖОДНОЇ локації взагалі (запит користувача
+    2026-07-24: "Яцине"/"Конотоп" відсутні в газетирі, статичний гео-гейт
+    (ADR-0012, Уточнення 07-24) тут безсилий)."""
+
+    place_name: str | None  # назва, яку LLM ідентифікував як ціль/локацію, або None
+    is_relevant: bool  # True, якщо не зловлено підстави сказати "далеко"
+    is_stub: bool  # True = LLM недоступний/невпевнений — fail-open на True
+
+
+_LOCATION_RELEVANCE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "place_name": {
+            "type": ["string", "null"],
+            "description": "Назва населеного пункту, згаданого як ціль/локація загрози, або null якщо жодного не згадано",
+        },
+        "is_near_sumy": {
+            "type": ["boolean", "null"],
+            "description": "true — м. Суми чи населений пункт Сумської області (або впритул до неї); false — явно інший, віддалений регіон; null — невідомо/не впевнений",
+        },
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+    },
+    "required": ["place_name", "is_near_sumy", "confidence"],
+}
+
+
+async def judge_location_relevance(raw_text: str) -> LocationRelevance:
+    """Fail-OPEN, не fail-closed — на відміну від решти ролей вище, де стаб є
+    безпечним деградованим результатом, тут невизначеність (нема ключа, пауза
+    breaker, низька впевненість, LLM не назвав жодного місця) означає
+    is_relevant=True: система ніколи не гасить потенційно реальну загрозу
+    через збій ШІ, лише не встигає її відфільтрувати — той самий принцип, що
+    вже діє в `lexicon.is_geo_relevant()` для "локацій не знайдено взагалі"."""
+    client = _get_client()
+    if client is None or not _breaker_allows_call():
+        return LocationRelevance(place_name=None, is_relevant=True, is_stub=True)
+
+    try:
+        response = await client.aio.models.generate_content(
+            model=_MODEL,
+            contents=raw_text[:500],
+            config=types.GenerateContentConfig(
+                system_instruction=(
+                    "Ти визначаєш, чи населений пункт, згаданий у цьому "
+                    "Telegram-повідомленні як ціль/локація загрози, знаходиться "
+                    "в Сумській області України (або впритул до неї), чи це "
+                    "явно інший, віддалений регіон. Це для системи сповіщень "
+                    "офісу в м. Суми — потрібно знати, чи ця інформація "
+                    "взагалі стосується мешканців Сум. Якщо в повідомленні "
+                    "немає жодного населеного пункту, або не впевнений — "
+                    "confidence=low."
+                ),
+                max_output_tokens=200,
+                response_mime_type="application/json",
+                response_json_schema=_LOCATION_RELEVANCE_SCHEMA,
+            ),
+        )
+        data = json.loads(response.text)
+        if data["confidence"] == "low" or data["place_name"] is None or data["is_near_sumy"] is None:
+            _record_success()
+            return LocationRelevance(place_name=data.get("place_name"), is_relevant=True, is_stub=True)
+    except Exception:
+        _record_failure()
+        return LocationRelevance(place_name=None, is_relevant=True, is_stub=True)
+    _record_success()
+    return LocationRelevance(place_name=data["place_name"], is_relevant=bool(data["is_near_sumy"]), is_stub=False)
