@@ -118,13 +118,11 @@ def _stub_alert_text(
     transition_label = _TRANSITION_UA.get(transition_type, transition_type)
     location_str = ", ".join(location) if location else "локація не визначена"
     evidence_line = threat_type_evidence or "Джерело — лексичний тригер, без деталізації типу"
-    channels_count = len(contributing_channels)
-    text = (
-        f"{emoji} {level_label} — {location_str}\n"
-        f"{transition_label}. {evidence_line}\n"
-        f"Підтверджено {confirmation_count} повідомленнями з {channels_count} "
-        f"{'каналу' if channels_count == 1 else 'каналів'}."
-    )
+    # Кількість підтверджень/каналів НЕ дублюється тут — вона вже окремо
+    # показана в UI-бейджі ("Підтверджено N повідомленням(и) з...", запит
+    # користувача 2026-07-24: ця мета-інформація не мала бути в самому тексті
+    # сповіщення, лише в інтерфейсі навколо нього).
+    text = f"{emoji} {level_label} — {location_str}\n{transition_label}. {evidence_line}"
     if stub_reason in ("circuit_open", "api_error"):
         text += "\n⚠️ без ШІ-верифікації"
     return ComposedAlert(text=text, is_stub=True, model=None, stub_reason=stub_reason)
@@ -151,12 +149,14 @@ async def compose_alert_text(
         )
 
     emoji, level_label = _LEVEL_UA.get(level, ("⚪", level.upper()))
+    # Кількість підтверджень/каналів свідомо НЕ передається як факт — вона
+    # вже окремо в UI-бейджі, не має дублюватись/переказуватись у самому
+    # тексті сповіщення (запит користувача 2026-07-24).
     facts = (
         f"рівень: {emoji} {level_label}\n"
         f"локація: {', '.join(location) if location else 'не визначена'}\n"
         f"тип переходу: {_TRANSITION_UA.get(transition_type, transition_type)}\n"
-        f"деталі: {threat_type_evidence or 'без деталізації типу'}\n"
-        f"підтверджень: {confirmation_count} з {len(contributing_channels)} каналів"
+        f"деталі: {threat_type_evidence or 'без деталізації типу'}"
     )
     try:
         response = await client.aio.models.generate_content(
@@ -177,7 +177,11 @@ async def compose_alert_text(
                     "'дотримуйтесь тиші') — рядок 'деталі' нижче часто лише одне "
                     "зловлене слово без контексту, не опис факту, що щось оголошено "
                     "чи наказано. Просто повідом рівень і те, що відомо, без "
-                    "додавання власних припущень."
+                    "додавання власних припущень. НЕ згадуй кількість підтверджень, "
+                    "джерел чи каналів і не давай оцінку надійності інформації "
+                    "(напр. 'перевірено за одним каналом', 'інформація потребує "
+                    "уваги') — це вже окремо показано в інтерфейсі, не пиши про це "
+                    "в самому тексті сповіщення."
                 ),
                 max_output_tokens=_MAX_TEXT_TOKENS,
             ),
