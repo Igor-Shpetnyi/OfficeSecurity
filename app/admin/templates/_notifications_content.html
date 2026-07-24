@@ -35,9 +35,31 @@
       {{ 'повідомленням' if n.confirmation_count == 1 else 'повідомленнями' }}
       {% if n.contributing_channel_names %}з {{ n.contributing_channel_names|join(", ") }}{% endif %}
       {% if n.source_event_channel and n.source_event_message_id %}
-      · <a href="/events/recent#event-{{ n.source_event_channel }}-{{ n.source_event_message_id }}">Джерело</a>
+      · <a href="/events/recent#event-{{ n.source_event_channel }}-{{ n.source_event_message_id }}">Джерело цього переходу</a>
       {% endif %}
     </div>
+
+    {% if n.contributing_events %}
+    <details class="event-history-details" data-key="notif-sources-{{ n.id }}">
+      <summary>На основі яких повідомлень ({{ n.contributing_events|length }})</summary>
+      <ul class="event-history-list">
+        {% for e in n.contributing_events %}
+        <li>
+          <span class="event-history-time">{{ e.detected_at.strftime("%H:%M:%S") }}</span>
+          <span class="event-reply-channel">{{ e.channel_name }}:</span>
+          {% if e.raw_text %}
+          <span class="event-history-text">{{ e.raw_text | truncate(150) }}</span>
+          {% elif e.media_label %}
+          <span class="event-history-text">{{ e.media_label }}</span>
+          {% else %}
+          <span class="event-history-text">—</span>
+          {% endif %}
+          <a href="/events/recent#event-{{ e.source_channel }}-{{ e.telegram_message_id }}">→</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
   </div>
   {% endfor %}
 </div>

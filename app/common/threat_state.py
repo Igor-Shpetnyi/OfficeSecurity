@@ -69,7 +69,7 @@ def _find_open_row_for_status(rows, locations: tuple[str, ...]):
 async def _write_notification(
     conn, state_row, transition_type: str, level: str, location: tuple[str, ...],
     confirmation_count: int, contributing_channels: list[str], source_event_log_id: int | None,
-    threat_type_evidence: str | None,
+    threat_type_evidence: str | None, contributing_event_ids: list[int],
 ) -> None:
     # threat_type_evidence передається окремим параметром, а не читається з
     # state_row — при ескалації state_row усе ще старий знімок ДО UPDATE
@@ -86,11 +86,11 @@ async def _write_notification(
     await conn.execute(
         "INSERT INTO threat_notifications "
         "(threat_state_id, transition_type, level, location, composed_text, composed_by, "
-        "confirmation_count, contributing_channels, source_event_log_id) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        "confirmation_count, contributing_channels, source_event_log_id, contributing_event_ids) "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         state_row["id"], transition_type, level, list(location), alert.text,
         "template_stub" if alert.is_stub else "llm",
-        confirmation_count, contributing_channels, source_event_log_id,
+        confirmation_count, contributing_channels, source_event_log_id, contributing_event_ids,
     )
 
 
@@ -101,13 +101,13 @@ async def record_signal(
     channel_state.resolve() — trace тут уже після Рівня 1+2 (може мати
     рівень, статус, локацію — або нічого, тоді сюди взагалі не заходимо)."""
     if trace.status is not None:
-        await _record_status(pool, trace, source_channel)
+        await _record_status(pool, trace, source_channel, event_log_id)
         return
     if trace.level is not None:
         await _record_level(pool, redis, trace, source_channel, event_log_id, normalized_text)
 
 
-async def _record_status(pool, trace, source_channel: str) -> None:
+async def _record_status(pool, trace, source_channel: str, event_log_id: int) -> None:
     async with pool.acquire() as conn, conn.transaction():
         rows = await conn.fetch("SELECT * FROM threat_state WHERE status = 'open' FOR UPDATE")
         row = _find_open_row_for_status(rows, trace.location)
@@ -117,6 +117,8 @@ async def _record_status(pool, trace, source_channel: str) -> None:
         confirming = list(row["status_confirming_channels"] or [])
         if source_channel not in confirming:
             confirming.append(source_channel)
+        event_ids = list(row["contributing_event_ids"] or [])
+        event_ids.append(event_log_id)
 
         # ТЗ §9: 2+ РІЗНИХ джерела підтвердження — лише тоді запускаємо
         # каскад (ТЗ §10). Одне джерело саме по собі не гасить ціль
@@ -125,14 +127,15 @@ async def _record_status(pool, trace, source_channel: str) -> None:
         if len(confirming) >= 2 and row["downgrade_scheduled_at"] is None:
             scheduled_at = datetime.now(timezone.utc) + _FIRST_STEP_DELAY
             await conn.execute(
-                "UPDATE threat_state SET status_confirming_channels = $1, downgrade_scheduled_at = $2 "
-                "WHERE id = $3",
-                confirming, scheduled_at, row["id"],
+                "UPDATE threat_state SET status_confirming_channels = $1, downgrade_scheduled_at = $2, "
+                "contributing_event_ids = $3 WHERE id = $4",
+                confirming, scheduled_at, event_ids, row["id"],
             )
         else:
             await conn.execute(
-                "UPDATE threat_state SET status_confirming_channels = $1 WHERE id = $2",
-                confirming, row["id"],
+                "UPDATE threat_state SET status_confirming_channels = $1, contributing_event_ids = $2 "
+                "WHERE id = $3",
+                confirming, event_ids, row["id"],
             )
 
 
@@ -149,14 +152,16 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
         if row is None:
             new_row = await conn.fetchrow(
                 "INSERT INTO threat_state "
-                "(current_level, location, threat_type_evidence, contributing_channels, origin_event_log_id) "
-                "VALUES ($1, $2, $3, $4, $5) RETURNING *",
+                "(current_level, location, threat_type_evidence, contributing_channels, "
+                "origin_event_log_id, contributing_event_ids) "
+                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
                 trace.level, list(trace.location), trace.level_evidence, [source_channel], event_log_id,
+                [event_log_id],
             )
             if not is_dup:
                 await _write_notification(
                     conn, new_row, "new", trace.level, trace.location, 1, [source_channel], event_log_id,
-                    trace.level_evidence,
+                    trace.level_evidence, [event_log_id],
                 )
             return
 
@@ -165,6 +170,8 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
             channels.append(source_channel)
         new_count = row["confirmation_count"] + 1
         location = tuple(trace.location) if trace.location else tuple(row["location"] or ())
+        event_ids = list(row["contributing_event_ids"] or [])
+        event_ids.append(event_log_id)
 
         if _LEVEL_RANK[trace.level] > _LEVEL_RANK[row["current_level"]]:
             # ТЗ §10 "абсолютне правило переривання" — новий вищий рівень
@@ -173,13 +180,13 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
                 "UPDATE threat_state SET current_level = $1, location = $2, threat_type_evidence = $3, "
                 "last_signal_at = now(), downgrade_scheduled_at = NULL, is_locationally_lost = FALSE, "
                 "lost_since = NULL, status_confirming_channels = '{}', contributing_channels = $4, "
-                "confirmation_count = $5 WHERE id = $6",
-                trace.level, list(location), trace.level_evidence, channels, new_count, row["id"],
+                "confirmation_count = $5, contributing_event_ids = $6 WHERE id = $7",
+                trace.level, list(location), trace.level_evidence, channels, new_count, event_ids, row["id"],
             )
             if not is_dup:
                 await _write_notification(
                     conn, row, "escalated", trace.level, location, new_count, channels, event_log_id,
-                    trace.level_evidence,
+                    trace.level_evidence, event_ids,
                 )
         else:
             # Мовчазне підтвердження — рівень не змінюється, жодного запису
@@ -187,8 +194,9 @@ async def _record_level(pool, redis, trace, source_channel: str, event_log_id: i
             # окремою карткою в стрічці, саме той шум, що дедуплікація мала прибрати).
             await conn.execute(
                 "UPDATE threat_state SET last_signal_at = now(), contributing_channels = $1, "
-                "confirmation_count = $2, is_locationally_lost = FALSE, lost_since = NULL WHERE id = $3",
-                channels, new_count, row["id"],
+                "confirmation_count = $2, is_locationally_lost = FALSE, lost_since = NULL, "
+                "contributing_event_ids = $3 WHERE id = $4",
+                channels, new_count, event_ids, row["id"],
             )
 
 
@@ -226,6 +234,7 @@ async def _apply_downgrade(conn, row, forced: bool) -> None:
     await _write_notification(
         conn, row, transition_type, next_level, tuple(row["location"] or ()),
         row["confirmation_count"], channels, None, row["threat_type_evidence"],
+        list(row["contributing_event_ids"] or []),
     )
 
 

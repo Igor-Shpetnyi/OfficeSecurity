@@ -89,7 +89,11 @@ CREATE TABLE IF NOT EXISTS threat_state (
     contributing_channels TEXT[] NOT NULL DEFAULT '{}',
     status_confirming_channels TEXT[] NOT NULL DEFAULT '{}', -- канали, що підтвердили "відбій" (ТЗ §9: 2+ гейтує каскад)
     status VARCHAR(10) NOT NULL DEFAULT 'open', -- 'open' | 'closed'
-    origin_event_log_id INT REFERENCES events_log(id)
+    origin_event_log_id INT REFERENCES events_log(id),
+    -- Усі events_log.id, що торкнулись цього рядка (нова ціль/ескалація/
+    -- мовчазне підтвердження/status-підтвердження) — повна доказова стрічка
+    -- "на основі яких повідомлень" (запит користувача 2026-07-24).
+    contributing_event_ids INT[] NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_threat_state_open ON threat_state (status) WHERE status = 'open';
 
@@ -110,7 +114,11 @@ CREATE TABLE IF NOT EXISTS threat_notifications (
     composed_by VARCHAR(20) NOT NULL DEFAULT 'template_stub',
     confirmation_count INT NOT NULL DEFAULT 1,
     contributing_channels TEXT[] NOT NULL DEFAULT '{}',
-    source_event_log_id INT REFERENCES events_log(id),
+    source_event_log_id INT REFERENCES events_log(id), -- саме ОДНЕ повідомлення, що спричинило ЦЕЙ перехід
+    -- Знімок threat_state.contributing_event_ids на момент цього переходу —
+    -- ПОВНА доказова стрічка (усі повідомлення, не лише те, що спричинило
+    -- перехід), той самий принцип, що знімок confirmation_count/contributing_channels.
+    contributing_event_ids INT[] NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_threat_notifications_created_at ON threat_notifications (created_at DESC);
